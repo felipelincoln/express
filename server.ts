@@ -3,17 +3,41 @@ import { Alchemy, Network } from 'alchemy-sdk';
 
 const app = express();
 
-const settings = {
-  apiKey: '',
+const alchemy = new Alchemy({
+  apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.ETH_MAINNET,
-};
+});
 
-app.get('/', async (req, res) => {
-  const alchemy = new Alchemy(settings);
-  const nfts = await alchemy.nft.getNftsForOwner('mande.eth', {
-    contractAddresses: ['0x960b7a6bcd451c9968473f7bbfd9be826efd549a'],
+interface NFT {
+  tokenId: string;
+  thumbnail?: string;
+}
+
+async function getNFTsFromAlchemy(contract: string, user: string, page?: string): Promise<NFT[]> {
+  const nftsFromAlchemy = await alchemy.nft.getNftsForOwner(user, {
+    contractAddresses: [contract],
+    pageKey: page,
   });
-  res.send(nfts);
+
+  const nfts: NFT[] = nftsFromAlchemy.ownedNfts.map((nft) => {
+    return { tokenId: nft.tokenId, thumbnail: nft.media[0]?.thumbnail };
+  });
+
+  const nextPage = nftsFromAlchemy.pageKey;
+
+  if (nextPage) {
+    const nftsFromNextPage = await getNFTsFromAlchemy(contract, user, nextPage);
+    nfts.push(...nftsFromNextPage);
+  }
+
+  return nfts;
+}
+
+app.get('/nfts/:contract/:user', async (req, res) => {
+  const { contract, user } = req.params;
+  const nfts = await getNFTsFromAlchemy(contract, user);
+
+  res.json({ data: nfts });
 });
 
 app.listen(3000, () => {
