@@ -1,7 +1,10 @@
 import express from 'express';
+import cors from 'cors';
 import { Alchemy, Network } from 'alchemy-sdk';
 
 const app = express();
+
+app.use(cors({ origin: '*' }));
 
 const alchemy = new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
