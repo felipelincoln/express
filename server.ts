@@ -5,6 +5,7 @@ import { MongoClient } from 'mongodb';
 
 const app = express();
 
+app.use(express.json());
 app.use(cors({ origin: '*' }));
 
 const alchemy = new Alchemy({
@@ -43,8 +44,7 @@ async function getNFTsFromAlchemy(contract: string, user: string, page?: string)
 }
 
 app.get('/healthcheck', async (req, res) => {
-  await client.connect();
-  await client.db('test').command({ ping: 100 });
+  await client.db('mongodb').command({ ping: 1 });
   await client.close();
   res.send('OK');
 });
@@ -54,6 +54,33 @@ app.get('/nfts/:contract/:user', async (req, res) => {
   const nfts = await getNFTsFromAlchemy(contract, user);
 
   res.json({ data: nfts });
+});
+
+app.post('/order/create', async (req, res) => {
+  const { tokenId, message, signature } = req.body;
+  if (!tokenId || !message || !signature) {
+    res.status(400).send('Bad request');
+    return;
+  }
+
+  await client
+    .db('mongodb')
+    .collection('orders')
+    .insertOne({ tokenId, order: { message, signature } });
+
+  res.send('created!');
+});
+
+app.get('/orders/:tokenId', async (req, res) => {
+  const { tokenId } = req.params;
+  console.log({ tokenId });
+  const order = await client
+    .db('mongodb')
+    .collection('orders')
+    .findOne({ tokenId: parseInt(tokenId) });
+  console.log({ order });
+
+  res.json({ data: order });
 });
 
 app.listen(3000, () => {
