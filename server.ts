@@ -57,6 +57,7 @@ app.get('/nfts/:contract/:user', async (req, res) => {
 });
 
 app.post('/order/create', async (req, res) => {
+  console.log({ body: req.body });
   const { tokenId, message, signature } = req.body;
   if (!tokenId || !message || !signature) {
     res.status(400).send('Bad request');
@@ -81,6 +82,11 @@ app.get('/orders/:tokenId', async (req, res) => {
   console.log({ order });
 
   res.json({ data: order });
+});
+
+app.get('/orders/', async (req, res) => {
+  const orders = await client.db('mongodb').collection('orders').find().toArray();
+  res.json({ data: orders });
 });
 
 app.listen(3000, () => {
