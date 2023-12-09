@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { Alchemy, Network } from 'alchemy-sdk';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const app = express();
 
@@ -18,9 +18,71 @@ const mongoDbUri =
 
 const client = new MongoClient(mongoDbUri);
 
-interface NFT {
+interface Order {
+  id: string;
   tokenId: string;
-  thumbnail?: string;
+  offerer: string;
+  fulfillmentCriteria: {
+    coin: {
+      amount: string;
+    };
+    token: {
+      amount: string;
+      identifier: string[];
+      identifierDescription: string;
+    };
+  };
+  endTime: string;
+  signature?: string;
+}
+
+interface Event {
+  id: string;
+  etype: string;
+  tokenId: string;
+  offerer: string;
+  fulfiller: string;
+  fulfillment: {
+    coin: {
+      amount: string;
+    };
+    token: {
+      amount: string;
+      identifier: string[];
+    };
+  };
+  txn_hash: string;
+  block_hash: string;
+  block_height: number;
+  created_at: number;
+}
+
+function isValidTokenIds(tokenIds: any): boolean {
+  if (!Array.isArray(tokenIds)) {
+    return false;
+  }
+
+  if (
+    !tokenIds.every((tokenId) => {
+      return isValidTokenId(tokenId);
+    })
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isValidTokenId(tokenId: any): boolean {
+  return typeof tokenId === 'string';
+}
+
+function isValidOrderId(orderId: any): boolean {
+  return typeof orderId === 'string';
+}
+
+function isValidTxnHash(txnHash: any): boolean {
+  return typeof txnHash === 'string';
 }
 
 app.get('/healthcheck', async (req, res) => {
@@ -46,9 +108,55 @@ app.get('/tokens/:user', async (req, res) => {
   res.json({ data: { tokens } });
 });
 
-app.get('/orders/', async (req, res) => {
-  const orders = await client.db('mongodb').collection('orders').find({ tokenId: 100 }).toArray();
+app.post('/orders/', async (req, res) => {
+  const { tokenIds }: { tokenIds: string[] } = req.body;
+
+  if (!isValidTokenIds(tokenIds)) {
+    res.status(400).send('Bad Request');
+  }
+
+  const orders = await client
+    .db('mongodb')
+    .collection('orders')
+    .find({ tokenId: { $in: tokenIds } })
+    .toArray();
+
   res.json({ data: orders });
+});
+
+app.post('/orders/fulfill/', async (req, res) => {
+  const { txnHash, orderId }: { txnHash: string; orderId: string } = req.body;
+
+  if (!isValidTxnHash(txnHash) || !isValidOrderId(orderId)) {
+    res.status(400).send('Bad Request');
+  }
+
+  const transaction = await (await alchemy.transact.getTransaction(txnHash))?.wait(1);
+
+  if (!transaction) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  const eventCreatedAt = Date
+
+  console.log({ transaction });
+
+  const order = await client
+    .db('mongodb')
+    .collection('orders')
+    .findOneAndDelete({ _id: new ObjectId(orderId) });
+
+  console.log('/orders/fulfill/');
+  console.log({ order });
+
+  const event: Event = {
+    block_hash: transaction.blockHash,
+    block_height: transaction.blockNumber,
+    created_at: 
+  };
+
+  res.json({ order });
 });
 
 // ----------------------
@@ -67,18 +175,6 @@ app.post('/order/create', async (req, res) => {
     .insertOne({ tokenId, order: { message, signature } });
 
   res.send('created!');
-});
-
-app.get('/orders/:tokenId', async (req, res) => {
-  const { tokenId } = req.params;
-  console.log({ tokenId });
-  const order = await client
-    .db('mongodb')
-    .collection('orders')
-    .findOne({ tokenId: parseInt(tokenId) });
-  console.log({ order });
-
-  res.json({ data: order });
 });
 
 app.listen(3000, () => {
