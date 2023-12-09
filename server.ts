@@ -23,38 +23,35 @@ interface NFT {
   thumbnail?: string;
 }
 
-async function getNFTsFromAlchemy(contract: string, user: string, page?: string): Promise<NFT[]> {
-  const nftsFromAlchemy = await alchemy.nft.getNftsForOwner(user, {
-    contractAddresses: [contract],
-    pageKey: page,
-  });
-
-  const nfts: NFT[] = nftsFromAlchemy.ownedNfts.map((nft) => {
-    return { tokenId: nft.tokenId, thumbnail: nft.media[0]?.thumbnail };
-  });
-
-  const nextPage = nftsFromAlchemy.pageKey;
-
-  if (nextPage) {
-    const nftsFromNextPage = await getNFTsFromAlchemy(contract, user, nextPage);
-    nfts.push(...nftsFromNextPage);
-  }
-
-  return nfts;
-}
-
 app.get('/healthcheck', async (req, res) => {
   await client.db('mongodb').command({ ping: 1 });
   await client.close();
+  // validate alchemy
+  // return message when error
   res.send('OK');
 });
 
-app.get('/nfts/:contract/:user', async (req, res) => {
-  const { contract, user } = req.params;
-  const nfts = await getNFTsFromAlchemy(contract, user);
+app.get('/tokens/:user', async (req, res) => {
+  const { user } = req.params;
+  const nfts = alchemy.nft.getNftsForOwnerIterator(user, {
+    contractAddresses: ['0x1ddb32a082c369834b57473dd3a5146870ecf8b7'],
+    omitMetadata: true,
+  });
 
-  res.json({ data: nfts });
+  let tokens: string[] = [];
+  for await (const value of nfts) {
+    tokens.push(value.tokenId);
+  }
+
+  res.json({ data: { tokens } });
 });
+
+app.get('/orders/', async (req, res) => {
+  const orders = await client.db('mongodb').collection('orders').find({ tokenId: 100 }).toArray();
+  res.json({ data: orders });
+});
+
+// ----------------------
 
 app.post('/order/create', async (req, res) => {
   console.log({ body: req.body });
@@ -82,11 +79,6 @@ app.get('/orders/:tokenId', async (req, res) => {
   console.log({ order });
 
   res.json({ data: order });
-});
-
-app.get('/orders/', async (req, res) => {
-  const orders = await client.db('mongodb').collection('orders').find().toArray();
-  res.json({ data: orders });
 });
 
 app.listen(3000, () => {
