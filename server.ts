@@ -19,7 +19,6 @@ const mongoDbUri =
 const client = new MongoClient(mongoDbUri);
 
 interface Order {
-  id: string;
   tokenId: string;
   offerer: string;
   fulfillmentCriteria: {
@@ -37,7 +36,6 @@ interface Order {
 }
 
 interface Event {
-  id: string;
   etype: string;
   tokenId: string;
   offerer: string;
@@ -129,7 +127,10 @@ app.post('/orders/fulfill/', async (req, res) => {
 
   if (!isValidTxnHash(txnHash) || !isValidOrderId(orderId)) {
     res.status(400).send('Bad Request');
+    return;
   }
+
+  console.log({ txnHash });
 
   const transaction = await (await alchemy.transact.getTransaction(txnHash))?.wait(1);
 
@@ -138,14 +139,19 @@ app.post('/orders/fulfill/', async (req, res) => {
     return;
   }
 
-  const eventCreatedAt = Date
+  const logs = transaction.logs;
 
-  console.log({ transaction });
+  console.log({ logs });
 
   const order = await client
     .db('mongodb')
-    .collection('orders')
+    .collection<Order>('orders')
     .findOneAndDelete({ _id: new ObjectId(orderId) });
+
+  if (!order) {
+    res.status(400).send('Bad Request');
+    return;
+  }
 
   console.log('/orders/fulfill/');
   console.log({ order });
@@ -153,7 +159,21 @@ app.post('/orders/fulfill/', async (req, res) => {
   const event: Event = {
     block_hash: transaction.blockHash,
     block_height: transaction.blockNumber,
-    created_at: 
+    txn_hash: transaction.transactionHash,
+    tokenId: order.tokenId,
+    offerer: order.offerer,
+    fulfiller: '?',
+    fulfillment: {
+      coin: {
+        amount: '0',
+      },
+      token: {
+        amount: '1',
+        identifier: ['2'],
+      },
+    },
+    created_at: Date.now(),
+    etype: 'trade',
   };
 
   res.json({ order });
