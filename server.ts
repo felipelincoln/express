@@ -128,6 +128,22 @@ app.get('/healthcheck/', async (req, res) => {
   res.send('OK');
 });
 
+app.post('/orders/', async (req, res) => {
+  const { tokenIds } = req.body;
+
+  if (!tokenIds) {
+    res.status(400).send('Error: missing `tokenIds` field in request body.');
+    return;
+  }
+
+  const orders = await client
+    .db('mongodb')
+    .collection('orders')
+    .find({ tokenId: { $in: tokenIds } })
+    .toArray();
+  res.json({ data: { orders } });
+});
+
 app.get('/tokens/:user', async (req, res) => {
   const { user } = req.params;
   const nfts = alchemy.nft.getNftsForOwnerIterator(user, {
