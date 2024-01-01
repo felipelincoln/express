@@ -1,8 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
-import { MongoClient, ObjectId, Transaction } from 'mongodb';
-import { decodeAbiParameters, parseAbiParameters } from 'viem';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const app = express();
 
@@ -93,6 +92,10 @@ function isValidAddress(address: string): boolean {
   return typeof address === 'string';
 }
 
+function isValidOrder(order: any): boolean {
+  return true;
+}
+
 function createEvent(transaction: TransactionReceipt): Event | undefined {
   const event: Event = {
     block_hash: transaction.blockHash,
@@ -154,6 +157,27 @@ app.post('/orders/', async (req, res) => {
     .toArray();
 
   res.json({ data: orders });
+});
+
+app.post('/orders/create/', async (req, res) => {
+  console.log({ body: req.body });
+  const { order } = req.body;
+  if (!order) {
+    res.status(400).send('Bad request');
+    return;
+  }
+
+  if (!isValidOrder(order)) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  await client
+    .db('mongodb')
+    .collection('orders')
+    .insertOne({ ...order });
+
+  res.send('created!');
 });
 
 // delete order if invalid
@@ -223,10 +247,34 @@ app.post('/orders/fulfill/', async (req, res) => {
   res.json({ data: { success: true } });
 });
 
-app.post('/events/', async (req, res) => {
-  const { address }: { address: string } = req.body;
+app.post('/orders/cancel/', async (req, res) => {
+  const { txnHash, orderId }: { txnHash: string; orderId: string } = req.body;
 
-  if (!isValidAddress(address)) {
+  if (!isValidTxnHash(txnHash) || !isValidOrderId(orderId)) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  console.log({ txnHash });
+
+  const transaction = await (await alchemy.transact.getTransaction(txnHash))?.wait(1);
+  if (!transaction) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  // validate transaction
+
+  await client
+    .db('mongodb')
+    .collection<Order>('orders')
+    .findOneAndDelete({ _id: new ObjectId(orderId) });
+});
+
+app.post('/events/', async (req, res) => {
+  const { address }: { address?: string } = req.body;
+
+  if (!!address && !isValidAddress(address)) {
     res.status(400).send('Bad Request');
   }
 
@@ -235,22 +283,37 @@ app.post('/events/', async (req, res) => {
   res.json({ data: events });
 });
 
-// ----------------------
+app.post('/notifications/count/', async (req, res) => {
+  const { address }: { address: string } = req.body;
 
-app.post('/order/create', async (req, res) => {
-  console.log({ body: req.body });
-  const { tokenId, message, signature } = req.body;
-  if (!tokenId || !message || !signature) {
-    res.status(400).send('Bad request');
-    return;
+  if (!isValidAddress(address)) {
+    res.status(400).send('Bad Request');
   }
 
-  await client
+  const notificationsCount = await client
     .db('mongodb')
-    .collection('orders')
-    .insertOne({ tokenId, order: { message, signature } });
+    .collection<Notification>('notifications')
+    .countDocuments();
 
-  res.send('created!');
+  res.json({ data: notificationsCount });
+});
+
+app.post('/notifications/view/', async (req, res) => {
+  const { address }: { address: string } = req.body;
+
+  if (!isValidAddress(address)) {
+    res.status(400).send('Bad Request');
+  }
+
+  const notifications = await client
+    .db('mongodb')
+    .collection<Notification>('notifications')
+    .find()
+    .toArray();
+
+  await client.db('mongodb').collection<Notification>('notifications').deleteMany();
+
+  res.json({ data: notifications });
 });
 
 app.listen(3000, () => {
