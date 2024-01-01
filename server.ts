@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import { Alchemy, Network } from 'alchemy-sdk';
-import { MongoClient, ObjectId } from 'mongodb';
+import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
+import { MongoClient, ObjectId, Transaction } from 'mongodb';
+import { decodeAbiParameters, parseAbiParameters } from 'viem';
 
 const app = express();
 
@@ -55,6 +56,11 @@ interface Event {
   created_at: number;
 }
 
+interface Notification {
+  eventId: string;
+  address: string;
+}
+
 function isValidTokenIds(tokenIds: any): boolean {
   if (!Array.isArray(tokenIds)) {
     return false;
@@ -83,7 +89,35 @@ function isValidTxnHash(txnHash: any): boolean {
   return typeof txnHash === 'string';
 }
 
-app.get('/healthcheck', async (req, res) => {
+function isValidAddress(address: string): boolean {
+  return typeof address === 'string';
+}
+
+function createEvent(transaction: TransactionReceipt): Event | undefined {
+  const event: Event = {
+    block_hash: transaction.blockHash,
+    block_height: transaction.blockNumber,
+    txn_hash: transaction.transactionHash,
+    tokenId: '1',
+    offerer: '0x0000000000000000000000000000000000000000',
+    fulfiller: '0x0000000000000000000000000000000000000000',
+    fulfillment: {
+      coin: {
+        amount: '0',
+      },
+      token: {
+        amount: '1',
+        identifier: ['1'],
+      },
+    },
+    created_at: Date.now(),
+    etype: 'trade',
+  };
+
+  return event;
+}
+
+app.get('/healthcheck/', async (req, res) => {
   await client.db('mongodb').command({ ping: 1 });
   await client.close();
   // validate alchemy
@@ -122,6 +156,7 @@ app.post('/orders/', async (req, res) => {
   res.json({ data: orders });
 });
 
+// delete order if invalid
 app.post('/orders/fulfill/', async (req, res) => {
   const { txnHash, orderId }: { txnHash: string; orderId: string } = req.body;
 
@@ -139,44 +174,65 @@ app.post('/orders/fulfill/', async (req, res) => {
     return;
   }
 
-  const logs = transaction.logs;
+  const event = createEvent(transaction);
 
-  console.log({ logs });
+  if (!event) {
+    res.status(400).send('Bad Request');
+    return;
+  }
 
   const order = await client
     .db('mongodb')
     .collection<Order>('orders')
-    .findOneAndDelete({ _id: new ObjectId(orderId) });
+    .findOne({ _id: new ObjectId(orderId) });
 
   if (!order) {
     res.status(400).send('Bad Request');
     return;
   }
 
-  console.log('/orders/fulfill/');
-  console.log({ order });
+  if (order.tokenId != event.tokenId || order.offerer != event.offerer) {
+    res.status(400).send('Bad Request');
+    return;
+  }
 
-  const event: Event = {
-    block_hash: transaction.blockHash,
-    block_height: transaction.blockNumber,
-    txn_hash: transaction.transactionHash,
-    tokenId: order.tokenId,
-    offerer: order.offerer,
-    fulfiller: '?',
-    fulfillment: {
-      coin: {
-        amount: '0',
-      },
-      token: {
-        amount: '1',
-        identifier: ['2'],
-      },
-    },
-    created_at: Date.now(),
-    etype: 'trade',
+  console.log('/orders/fulfill/');
+  console.log({ order, event });
+
+  await client.db('mongodb').collection('orders').deleteOne(order._id);
+  const { insertedId: eventObjectId } = await client
+    .db('mongodb')
+    .collection('events')
+    .insertOne(event);
+
+  const notificationOfferer: Notification = {
+    address: event.offerer,
+    eventId: eventObjectId.toString(),
   };
 
-  res.json({ order });
+  const notificationFulfiller: Notification = {
+    address: event.fulfiller,
+    eventId: eventObjectId.toString(),
+  };
+
+  await client
+    .db('mongodb')
+    .collection('notifications')
+    .insertMany([notificationFulfiller, notificationOfferer]);
+
+  res.json({ data: { success: true } });
+});
+
+app.post('/events/', async (req, res) => {
+  const { address }: { address: string } = req.body;
+
+  if (!isValidAddress(address)) {
+    res.status(400).send('Bad Request');
+  }
+
+  const events = await client.db('mongodb').collection<Event>('events').find({ address }).toArray();
+
+  res.json({ data: events });
 });
 
 // ----------------------
