@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { MongoClient, ObjectId } from 'mongodb';
+import { supportedCollections } from './collections';
 
 const app = express();
 
@@ -12,6 +13,66 @@ const alchemy = new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.ETH_MAINNET,
 });
+
+app.get('/tokens/:collection/:userAddress', async (req, res) => {
+  const { collection, userAddress } = req.params;
+  const { address: contractAddress } = supportedCollections[collection] || {};
+
+  if (!contractAddress) {
+    res.status(400).send('Error: Collection not supported');
+    return;
+  }
+
+  const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
+    contractAddresses: [contractAddress],
+    omitMetadata: true,
+  });
+
+  let tokens: string[] = [];
+  for await (const value of nfts) {
+    tokens.push(value.tokenId);
+  }
+
+  res.json({ data: { tokens } });
+});
+
+app.post('/tokens/:collection', async (req, res) => {
+  const { collection: collectionRequest } = req.params;
+  const {
+    tokenIds: tokenIdsRequest,
+    filters,
+  }: { tokenIds: string[]; filters: { [attribute: string]: string } } = req.body;
+  // TODO: validate filters
+
+  console.log({ tokenIdsRequest, filters });
+
+  if (!filters) {
+    res.status(400).send('Error: missing `filters` field in request body.');
+    return;
+  }
+
+  const collection = supportedCollections[collectionRequest];
+  if (!collection) {
+    res.status(400).send('Error: Collection not supported');
+    return;
+  }
+
+  const tokenIds = tokenIdsRequest || collection.mintedTokens;
+  const filteredTokenIds = tokenIds.filter((tokenId: string) => {
+    const metadata = collection.metadata[tokenId];
+
+    for (const [attribute, value] of Object.entries(filters)) {
+      if (metadata[attribute] != value) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  res.json({ data: { tokens: filteredTokenIds } });
+});
+
+/// -=--------------------------- to be implemented
 
 const mongoDbUri =
   'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
