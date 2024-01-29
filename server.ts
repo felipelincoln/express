@@ -19,7 +19,7 @@ app.get('/tokens/:collection/:userAddress', async (req, res) => {
   const { address: contractAddress } = supportedCollections[collection] || {};
 
   if (!contractAddress) {
-    res.status(400).send('Error: Collection not supported');
+    res.status(400).json({ error: 'Collection not supported' });
     return;
   }
 
@@ -42,18 +42,30 @@ app.post('/tokens/:collection', async (req, res) => {
     tokenIds: tokenIdsRequest,
     filters,
   }: { tokenIds: string[]; filters: { [attribute: string]: string } } = req.body;
-  // TODO: validate filters
 
-  console.log({ tokenIdsRequest, filters });
+  if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
+    res.status(400).json({ error: 'invalid `tokenIds` field' });
+    return;
+  }
 
   if (!filters) {
-    res.status(400).send('Error: missing `filters` field in request body.');
+    res.status(400).json({ error: '`filters` field is required' });
+    return;
+  }
+
+  if (!isValidObject(filters)) {
+    res.status(400).json({ error: 'invalid `filters` field' });
+    return;
+  }
+
+  if (!Object.entries(filters).flat().every(isValidString)) {
+    res.status(400).json({ error: 'invalid `filters` field' });
     return;
   }
 
   const collection = supportedCollections[collectionRequest];
   if (!collection) {
-    res.status(400).send('Error: Collection not supported');
+    res.status(400).json({ error: 'collection not supported' });
     return;
   }
 
@@ -135,6 +147,14 @@ function isValidTokenIds(tokenIds: any): boolean {
   }
 
   return true;
+}
+
+function isValidObject(object: any): boolean {
+  return typeof object === 'object' && !Array.isArray(object) && object !== null;
+}
+
+function isValidString(string: any): boolean {
+  return typeof string === 'string';
 }
 
 function isValidTokenId(tokenId: any): boolean {
