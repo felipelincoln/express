@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
-import { MongoClient, ObjectId } from 'mongodb';
+import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
 import { supportedCollections } from './collections';
 import { isValidObject, isValidString, isValidTokenIds } from './queryValidator';
 
@@ -133,6 +133,25 @@ app.post('/orders/create/', async (req, res) => {
     });
 });
 
+app.post('/orders/list/', async (req, res) => {
+  const { tokenIds, collection }: { tokenIds: string[]; collection: string } = req.body;
+
+  if (tokenIds && !isValidTokenIds(tokenIds)) {
+    res.status(400).json({ error: 'invalid `tokenIds` field' });
+    return;
+  }
+
+  const query: { token: string; tokenId?: object } = { token: collection };
+
+  if (!!tokenIds) {
+    query.tokenId = { $in: tokenIds };
+  }
+
+  const orders = await client.db('mongodb').collection('orders').find(query).toArray();
+
+  res.json({ data: { orders } });
+});
+
 app.listen(3000, async () => {
   /*
   await client.db('mongodb').createCollection('orders', {
@@ -217,7 +236,7 @@ app.listen(3000, async () => {
     },
   });
 
-  await client.db('mongodb').collection('orders').createIndex({ tokenId: 1 }, { unique: true });
+  await client.db('mongodb').collection('orders').createIndex({ token: 1, tokenId: 1 }, { unique: true });
   */
 
   console.log(`⚡️[server]: Server is running at http://localhost:3000`);
