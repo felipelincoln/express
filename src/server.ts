@@ -3,6 +3,7 @@ import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { MongoClient, ObjectId } from 'mongodb';
 import { supportedCollections } from './collections';
+import { isValidObject, isValidOrder, isValidString, isValidTokenIds } from './queryValidator';
 
 const app = express();
 
@@ -13,6 +14,11 @@ const alchemy = new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.ETH_MAINNET,
 });
+
+const mongoDbUri =
+  'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
+
+const client = new MongoClient(mongoDbUri);
 
 app.get('/tokens/:collection/:userAddress', async (req, res) => {
   const { collection, userAddress } = req.params;
@@ -84,13 +90,35 @@ app.post('/tokens/:collection', async (req, res) => {
   res.json({ data: { tokens: filteredTokenIds } });
 });
 
+app.post('/orders/create/', async (req, res) => {
+  console.log({ body: req.body });
+  const { order } = req.body;
+  if (!order) {
+    res.status(400).send('Bad request');
+    return;
+  }
+
+  if (!isValidOrder(order)) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  // check if order exists for this tokenId
+
+  await client
+    .db('mongodb')
+    .collection('orders')
+    .insertOne({ ...order });
+
+  res.send('created!');
+});
+
+app.listen(3000, () => {
+  console.log(`⚡️[server]: Server is running at http://localhost:3000`);
+});
+
 /// -=--------------------------- to be implemented
-
-const mongoDbUri =
-  'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
-
-const client = new MongoClient(mongoDbUri);
-
+/*
 interface Order {
   tokenId: string;
   offerer: string;
@@ -131,50 +159,6 @@ interface Event {
 interface Notification {
   eventId: string;
   address: string;
-}
-
-function isValidTokenIds(tokenIds: any): boolean {
-  if (!Array.isArray(tokenIds)) {
-    return false;
-  }
-
-  if (
-    !tokenIds.every((tokenId) => {
-      return isValidTokenId(tokenId);
-    })
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function isValidObject(object: any): boolean {
-  return typeof object === 'object' && !Array.isArray(object) && object !== null;
-}
-
-function isValidString(string: any): boolean {
-  return typeof string === 'string';
-}
-
-function isValidTokenId(tokenId: any): boolean {
-  return typeof tokenId === 'string';
-}
-
-function isValidOrderId(orderId: any): boolean {
-  return typeof orderId === 'string';
-}
-
-function isValidTxnHash(txnHash: any): boolean {
-  return typeof txnHash === 'string';
-}
-
-function isValidAddress(address: string): boolean {
-  return typeof address === 'string';
-}
-
-function isValidOrder(order: any): boolean {
-  return true;
 }
 
 function createEvent(transaction: TransactionReceipt): Event | undefined {
@@ -254,27 +238,6 @@ app.post('/orders/', async (req, res) => {
     .toArray();
 
   res.json({ data: orders });
-});
-
-app.post('/orders/create/', async (req, res) => {
-  console.log({ body: req.body });
-  const { order } = req.body;
-  if (!order) {
-    res.status(400).send('Bad request');
-    return;
-  }
-
-  if (!isValidOrder(order)) {
-    res.status(400).send('Bad Request');
-    return;
-  }
-
-  await client
-    .db('mongodb')
-    .collection('orders')
-    .insertOne({ ...order });
-
-  res.send('created!');
 });
 
 // delete order if invalid
@@ -413,6 +376,4 @@ app.post('/notifications/view/', async (req, res) => {
   res.json({ data: notifications });
 });
 
-app.listen(3000, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:3000`);
-});
+*/

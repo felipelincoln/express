@@ -2,7 +2,7 @@
   "name": "express",
   "version": "1.0.0",
   "scripts": {
-    "dev": "nodemon server.ts"
+    "dev": "nodemon src/server.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.14",
