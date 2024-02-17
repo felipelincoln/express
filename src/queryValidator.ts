@@ -37,7 +37,3 @@ export function isValidTxnHash(txnHash: any): boolean {
 export function isValidAddress(address: string): boolean {
   return isValidString(address);
 }
-
-export function isValidOrder(order: any): boolean {
-  return true;
-}

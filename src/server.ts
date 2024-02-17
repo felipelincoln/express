@@ -3,7 +3,7 @@ import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { MongoClient, ObjectId } from 'mongodb';
 import { supportedCollections } from './collections';
-import { isValidObject, isValidOrder, isValidString, isValidTokenIds } from './queryValidator';
+import { isValidObject, isValidString, isValidTokenIds } from './queryValidator';
 
 const app = express();
 
@@ -19,6 +19,23 @@ const mongoDbUri =
   'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
 
 const client = new MongoClient(mongoDbUri);
+
+export interface OrderWithSignature {
+  token: string;
+  tokenId: string;
+  offerer: string;
+  fulfillmentCriteria: {
+    coin?: {
+      amount: string;
+    };
+    token: {
+      amount: string;
+      identifier: string[];
+    };
+  };
+  endTime: string;
+  signature: string;
+}
 
 app.get('/tokens/:collection/:userAddress', async (req, res) => {
   const { collection, userAddress } = req.params;
@@ -91,29 +108,118 @@ app.post('/tokens/:collection', async (req, res) => {
 });
 
 app.post('/orders/create/', async (req, res) => {
-  console.log({ body: req.body });
   const { order } = req.body;
+
   if (!order) {
-    res.status(400).send('Bad request');
+    res.status(400).json({ error: 'missing `order` field in request body' });
     return;
   }
 
-  if (!isValidOrder(order)) {
-    res.status(400).send('Bad Request');
-    return;
-  }
-
-  // check if order exists for this tokenId
-
-  await client
+  client
     .db('mongodb')
     .collection('orders')
-    .insertOne({ ...order });
-
-  res.send('created!');
+    .insertOne({ ...order })
+    .then((result) => res.json({ data: 'Order created' }))
+    .catch((err) => {
+      switch (err.code) {
+        case 11000:
+          res.status(400).json({ error: `${order.tokenId} is listed` });
+          return;
+        default:
+          console.log({ unhandled_error: { order, err, errInfo: err.errInfo } });
+          res.status(500).json({ error: 'Internal Server Error' });
+          return;
+      }
+    });
 });
 
-app.listen(3000, () => {
+app.listen(3000, async () => {
+  /*
+  await client.db('mongodb').createCollection('orders', {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        additionalProperties: false,
+        required: [
+          '_id',
+          'tokenId',
+          'token',
+          'offerer',
+          'endTime',
+          'signature',
+          'fulfillmentCriteria',
+        ],
+        properties: {
+          _id: { bsonType: 'objectId' },
+          tokenId: {
+            bsonType: 'string',
+            description: "'tokenId' is required (string)",
+          },
+          token: {
+            bsonType: 'string',
+            description: "'token' is required (string)",
+          },
+          offerer: {
+            bsonType: 'string',
+            description: "'offerer' is required (string)",
+          },
+          endTime: {
+            bsonType: 'string',
+            description: "'endTime' is required (string)",
+          },
+          signature: {
+            bsonType: 'string',
+            description: "'signature' is required (string)",
+          },
+          fulfillmentCriteria: {
+            bsonType: 'object',
+            additionalProperties: false,
+            description: "'fulfillmentCriteria' is required (object)",
+
+            required: ['token'],
+            properties: {
+              coin: {
+                bsonType: 'object',
+                additionalProperties: false,
+                description: "'coin' is required (object)",
+                required: ['amount'],
+                properties: {
+                  amount: {
+                    bsonType: 'string',
+                    description: "'amount' is required (string)",
+                  },
+                },
+              },
+              token: {
+                bsonType: 'object',
+                additionalProperties: false,
+                description: "'token' is required (object)",
+                required: ['amount', 'identifier'],
+                properties: {
+                  amount: {
+                    bsonType: 'string',
+                    description: "'amount' is required (string)",
+                  },
+                  identifier: {
+                    bsonType: 'array',
+                    description: "'identifier' is required (array)",
+                    items: {
+                      bsonType: 'string',
+                      description: "'identifier' is required (string)",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await client.db('mongodb').collection('orders').createIndex({ tokenId: 1 }, { unique: true });
+  */
+
   console.log(`⚡️[server]: Server is running at http://localhost:3000`);
 });
 
