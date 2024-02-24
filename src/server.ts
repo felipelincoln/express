@@ -4,15 +4,27 @@ import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
 import { supportedCollections } from './collections';
 import { isValidObject, isValidString, isValidTokenIds } from './queryValidator';
+import { EthereumNetwork, config } from './config';
 
 const app = express();
 
 app.use(express.json());
 app.use(cors({ origin: '*' }));
 
+const alchemyNetwork = (() => {
+  switch (config.ethereumNetwork) {
+    case EthereumNetwork.Mainnet:
+      return Network.ETH_MAINNET;
+    case EthereumNetwork.Sepolia:
+      return Network.ETH_SEPOLIA;
+    default:
+      throw new Error(`Invalid Ethereum Network: ${config.ethereumNetwork}`);
+  }
+})();
+
 const alchemy = new Alchemy({
   apiKey: process.env.ALCHEMY_API_KEY,
-  network: Network.ETH_MAINNET,
+  network: alchemyNetwork,
 });
 
 const mongoDbUri =

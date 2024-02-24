@@ -1,0 +1,675 @@
+{
+  "1": {
+    "Background": "Purple",
+    "Fur": "Eastern",
+    "Clothes": "Zebra",
+    "Face": "Down Bad"
+  },
+  "2": {
+    "Background": "Turquoise",
+    "Fur": "Guadeloupe",
+    "Clothes": "Gentleman",
+    "Face": "Possessed",
+    "Head": "Mohawk"
+  },
+  "3": {
+    "Background": "Turquoise",
+    "Fur": "Torch Key",
+    "Clothes": "Tank Top",
+    "Face": "Blush"
+  },
+  "4": {
+    "Background": "Yellow",
+    "Fur": "Torch Key",
+    "Clothes": "Basketball Shirt",
+    "Face": "Angry Pirate",
+    "Head": "Hoop Earring"
+  },
+  "5": {
+    "Background": "Cyber",
+    "Fur": "Red",
+    "Clothes": "Thriller Jacket",
+    "Face": "Cute",
+    "Head": "Explorer"
+  },
+  "6": {
+    "Background": "Light Blue",
+    "Fur": "Red",
+    "Face": "Smile",
+    "Head": "Lightning"
+  },
+  "7": {
+    "Background": "Lemon",
+    "Fur": "Guadeloupe",
+    "Face": "Mustache",
+    "Head": "Scout"
+  },
+  "8": {
+    "Background": "Night",
+    "Fur": "Pink",
+    "Face": "Cute",
+    "Head": "Witch"
+  },
+  "9": {
+    "Background": "Yellow",
+    "Fur": "Red",
+    "Clothes": "Sleeveless Jeans Jacket",
+    "Face": "Angry Golden Teeth",
+    "Head": "Explorer"
+  },
+  "10": {
+    "Background": "Green",
+    "Fur": "Caramel",
+    "Face": "Confused"
+  },
+  "11": {
+    "Background": "Blue",
+    "Fur": "Torch Key",
+    "Clothes": "Striped Shirt",
+    "Face": "Bad Boy",
+    "Head": "Viking"
+  },
+  "12": {
+    "Background": "Pink",
+    "Fur": "Caramel",
+    "Clothes": "Black Shirt",
+    "Face": "Dollar",
+    "Head": "Cap"
+  },
+  "13": {
+    "Background": "Blue",
+    "Fur": "Red",
+    "Face": "Kiss"
+  },
+  "14": {
+    "Background": "Yellow",
+    "Fur": "Red",
+    "Clothes": "Backpack",
+    "Face": "Round Glasses",
+    "Head": "Golden Earring"
+  },
+  "15": {
+    "Background": "Cyber",
+    "Fur": "Red",
+    "Clothes": "Shoulder Bag",
+    "Face": "Smoking",
+    "Head": "Cowboy"
+  },
+  "16": {
+    "Background": "Light Blue",
+    "Fur": "Alien",
+    "Clothes": "Pearl Collar",
+    "Face": "Bad Boy",
+    "Head": "Viking"
+  },
+  "17": {
+    "Background": "Light Blue",
+    "Fur": "Torch Key",
+    "Clothes": "Sleeveless Jeans Jacket",
+    "Face": "Hide The Pain",
+    "Head": "Mohawk"
+  },
+  "18": {
+    "Background": "Night",
+    "Fur": "Caramel",
+    "Clothes": "Bee",
+    "Face": "Definitely Not Raccool",
+    "Head": "Pirate"
+  },
+  "19": {
+    "Background": "Green",
+    "Fur": "Alien",
+    "Clothes": "Bee",
+    "Face": "Yum",
+    "Head": "Winter Cap"
+  },
+  "20": {
+    "Background": "Lemon",
+    "Fur": "Red",
+    "Clothes": "White Shirt",
+    "Face": "Angry",
+    "Head": "Mohawk"
+  },
+  "21": {
+    "Background": "Turquoise",
+    "Fur": "Torch Key",
+    "Clothes": "Tank Top",
+    "Face": "Cool",
+    "Head": "Banana"
+  },
+  "22": {
+    "Background": "Rubine Red",
+    "Fur": "Eastern",
+    "Face": "Oni",
+    "Head": "Mohawk"
+  },
+  "23": {
+    "Background": "Torch Red",
+    "Fur": "Fox",
+    "Clothes": "Gentleman",
+    "Face": "Sad",
+    "Head": "Captain"
+  },
+  "24": {
+    "Background": "Yellow",
+    "Fur": "Red",
+    "Clothes": "Tank Top",
+    "Face": "Kiss",
+    "Head": "Winter Cap"
+  },
+  "25": {
+    "Background": "Green",
+    "Fur": "Guadeloupe",
+    "Clothes": "Backpack",
+    "Face": "Bad Boy",
+    "Head": "Winter Cap"
+  },
+  "26": {
+    "Background": "Green",
+    "Fur": "Guadeloupe",
+    "Clothes": "White Shirt",
+    "Face": "Sob",
+    "Head": "Winter Cap"
+  },
+  "27": {
+    "Background": "Yellow",
+    "Fur": "Caramel",
+    "Clothes": "Turtleneck",
+    "Face": "Surprised",
+    "Head": "Viking"
+  },
+  "28": {
+    "Background": "Cyber",
+    "Fur": "Red",
+    "Face": "Content"
+  },
+  "29": {
+    "Background": "Yellow",
+    "Fur": "Pink",
+    "Face": "Farmer"
+  },
+  "30": {
+    "Background": "Pink",
+    "Fur": "Alien",
+    "Clothes": "Leather Jacket",
+    "Face": "Angry",
+    "Head": "Pirate"
+  },
+  "31": {
+    "Background": "Orange",
+    "Fur": "Red",
+    "Clothes": "Gentleman",
+    "Face": "Cyber Mask",
+    "Head": "Captain"
+  },
+  "32": {
+    "Background": "Purple",
+    "Fur": "Red",
+    "Clothes": "Striped Shirt",
+    "Face": "Delicious",
+    "Head": "Headbow"
+  },
+  "33": {
+    "Background": "Light Blue",
+    "Fur": "Guadeloupe",
+    "Clothes": "Sleeveless Jeans Jacket",
+    "Face": "Villain",
+    "Head": "Captain"
+  },
+  "34": {
+    "Background": "Light Blue",
+    "Fur": "Eastern",
+    "Clothes": "Jacket",
+    "Face": "Villain",
+    "Head": "Diamond Earring"
+  },
+  "35": {
+    "Background": "Torch Red",
+    "Fur": "Pink",
+    "Clothes": "Bee",
+    "Face": "Bubble Gum",
+    "Head": "Duck"
+  },
+  "36": {
+    "Background": "Light Blue",
+    "Fur": "Eastern",
+    "Clothes": "Jeans Jacket",
+    "Face": "Smug",
+    "Head": "Angel"
+  },
+  "37": {
+    "Background": "Yellow",
+    "Fur": "Guadeloupe",
+    "Clothes": "Jaguar",
+    "Face": "Kiss",
+    "Head": "Pizza"
+  },
+  "38": {
+    "Background": "Light Blue",
+    "Fur": "Caramel",
+    "Clothes": "Zebra",
+    "Face": "Smug"
+  },
+  "39": {
+    "Background": "Light Blue",
+    "Fur": "Alien",
+    "Clothes": "Basketball Shirt",
+    "Face": "Mustache",
+    "Head": "Pirate"
+  },
+  "40": {
+    "Background": "Rubine Red",
+    "Fur": "Torch Key",
+    "Face": "Delicious",
+    "Head": "Golden Earring"
+  },
+  "41": {
+    "Background": "Lemon",
+    "Fur": "Red",
+    "Clothes": "Turtleneck",
+    "Face": "Angry",
+    "Head": "Duck"
+  },
+  "42": {
+    "Background": "Rubine Red",
+    "Fur": "Eastern",
+    "Clothes": "Black Shirt",
+    "Face": "Angry Pirate",
+    "Head": "Witch"
+  },
+  "43": {
+    "Background": "Rubine Red",
+    "Fur": "Red",
+    "Clothes": "Tank Top",
+    "Face": "Sob",
+    "Head": "Angel"
+  },
+  "44": {
+    "Background": "Light Blue",
+    "Fur": "Guadeloupe",
+    "Clothes": "Jeans Jacket",
+    "Face": "Sleepy",
+    "Head": "Gentleman"
+  },
+  "45": {
+    "Background": "Orange",
+    "Fur": "Red",
+    "Clothes": "Puffer Jacket",
+    "Face": "Bubble Gum",
+    "Head": "Gentleman"
+  },
+  "46": {
+    "Background": "Light Blue",
+    "Fur": "Caramel",
+    "Clothes": "Jeans Jacket",
+    "Face": "Sleepy",
+    "Head": "Witch"
+  },
+  "47": {
+    "Background": "Rubine Red",
+    "Fur": "Caramel",
+    "Clothes": "Raccools Shirt",
+    "Face": "Cyber Mask",
+    "Head": "Devil Horns"
+  },
+  "48": {
+    "Background": "Blue",
+    "Fur": "Eastern",
+    "Clothes": "Bee",
+    "Face": "Cat Eye",
+    "Head": "Mohawk"
+  },
+  "49": {
+    "Background": "Torch Red",
+    "Fur": "Duck",
+    "Clothes": "Raccool Disguise",
+    "Face": "Duck"
+  },
+  "50": {
+    "Background": "Green",
+    "Fur": "Red",
+    "Clothes": "Gentleman",
+    "Face": "Love",
+    "Head": "Flower"
+  },
+  "51": {
+    "Background": "Green",
+    "Fur": "Guadeloupe",
+    "Clothes": "Striped Shirt",
+    "Face": "Smile",
+    "Head": "Banana"
+  },
+  "52": {
+    "Background": "Day",
+    "Fur": "Caramel",
+    "Clothes": "Jacket",
+    "Face": "Mustache",
+    "Head": "Scout"
+  },
+  "53": {
+    "Background": "Blue",
+    "Fur": "Eastern",
+    "Clothes": "Cowboy",
+    "Face": "Bad Boy",
+    "Head": "Flower"
+  },
+  "54": {
+    "Background": "Lemon",
+    "Fur": "Red",
+    "Clothes": "Classy Coat",
+    "Face": "Cyber Mask",
+    "Head": "Angel"
+  },
+  "55": {
+    "Background": "Blue",
+    "Fur": "Zombie",
+    "Clothes": "Gentleman",
+    "Face": "Bubble Gum",
+    "Head": "Golden Earring"
+  },
+  "56": {
+    "Background": "Lemon",
+    "Fur": "Guadeloupe",
+    "Face": "Pirate",
+    "Head": "Pizza"
+  },
+  "57": {
+    "Background": "Torch Red",
+    "Fur": "Red",
+    "Clothes": "Cowboy",
+    "Face": "Plague Doctor"
+  },
+  "58": {
+    "Background": "Cyber",
+    "Fur": "Caramel",
+    "Clothes": "Vintage Suspenders",
+    "Face": "Angry Pirate",
+    "Head": "Captain"
+  },
+  "59": {
+    "Background": "Turquoise",
+    "Fur": "Torch Key",
+    "Clothes": "Sleeveless Jeans Jacket",
+    "Face": "Farmer",
+    "Head": "Headbow"
+  },
+  "60": {
+    "Background": "Lemon",
+    "Fur": "Torch Key",
+    "Clothes": "Leather Jacket",
+    "Face": "Angry",
+    "Head": "Mohawk"
+  },
+  "61": {
+    "Background": "Yellow",
+    "Fur": "Torch Key",
+    "Clothes": "Jaguar",
+    "Face": "Surprised",
+    "Head": "Pizza"
+  },
+  "62": {
+    "Background": "Yellow",
+    "Fur": "Guadeloupe",
+    "Clothes": "Raccools Shirt",
+    "Face": "Round Glasses",
+    "Head": "Duck"
+  },
+  "63": {
+    "Background": "Yellow",
+    "Fur": "Pink",
+    "Clothes": "Zebra",
+    "Face": "Angry Pirate"
+  },
+  "64": {
+    "Background": "Blue",
+    "Fur": "Guadeloupe",
+    "Clothes": "Bee",
+    "Face": "Smile",
+    "Head": "Army"
+  },
+  "65": {
+    "Background": "Orange",
+    "Fur": "Eastern",
+    "Face": "Kiss",
+    "Head": "Explorer"
+  },
+  "66": {
+    "Background": "Blue",
+    "Fur": "Eastern",
+    "Clothes": "Basketball Shirt",
+    "Face": "Cute",
+    "Head": "Golden Earring"
+  },
+  "67": {
+    "Background": "Orange",
+    "Fur": "Torch Key",
+    "Clothes": "Leather Jacket",
+    "Face": "Surprised",
+    "Head": "Diamond Earring"
+  },
+  "68": {
+    "Background": "Yellow",
+    "Fur": "Pink",
+    "Clothes": "Leather Jacket",
+    "Face": "Sleepy",
+    "Head": "Cowboy"
+  },
+  "69": {
+    "Background": "Lemon",
+    "Fur": "Torch Key",
+    "Clothes": "Tank Top",
+    "Face": "Kiss",
+    "Head": "Diamond Earring"
+  },
+  "70": {
+    "Background": "Turquoise",
+    "Fur": "Guadeloupe",
+    "Clothes": "Black Shirt",
+    "Face": "Happy",
+    "Head": "Flower"
+  },
+  "71": {
+    "Background": "Purple",
+    "Fur": "Torch Key",
+    "Clothes": "Sports Bra",
+    "Face": "Mustache",
+    "Head": "Diamond Earring"
+  },
+  "72": {
+    "Background": "Lemon",
+    "Fur": "Torch Key",
+    "Clothes": "Bee",
+    "Face": "Cyborg"
+  },
+  "73": {
+    "Background": "Purple",
+    "Fur": "Red",
+    "Clothes": "Striped Shirt",
+    "Face": "Angry Golden Teeth",
+    "Head": "Viking"
+  },
+  "74": {
+    "Background": "Orange",
+    "Fur": "Torch Key",
+    "Clothes": "Tank Top",
+    "Face": "Surprised",
+    "Head": "Headbow"
+  },
+  "75": {
+    "Background": "Night",
+    "Fur": "Eastern",
+    "Clothes": "Flower Shirt",
+    "Face": "Yum",
+    "Head": "Cap"
+  },
+  "76": {
+    "Background": "Yellow",
+    "Fur": "Red",
+    "Clothes": "Turtleneck",
+    "Face": "Depressed",
+    "Head": "Army"
+  },
+  "77": {
+    "Background": "Yellow",
+    "Fur": "Fox",
+    "Clothes": "White Shirt",
+    "Face": "Flushed",
+    "Head": "Gentleman"
+  },
+  "78": {
+    "Background": "Turquoise",
+    "Fur": "Torch Key",
+    "Face": "Sob",
+    "Head": "Duck"
+  },
+  "79": {
+    "Background": "Orange",
+    "Fur": "Red",
+    "Clothes": "Shoulder Bag",
+    "Face": "Cool",
+    "Head": "Hoop Earring"
+  },
+  "80": {
+    "Background": "Rubine Red",
+    "Fur": "Eastern",
+    "Clothes": "Puffer Jacket",
+    "Face": "Cat Eye",
+    "Head": "Golden Earring"
+  },
+  "81": {
+    "Background": "Green",
+    "Fur": "Red",
+    "Clothes": "Striped Shirt",
+    "Face": "Angry Golden Teeth",
+    "Head": "Banana"
+  },
+  "82": {
+    "Background": "Rubine Red",
+    "Fur": "Guadeloupe",
+    "Clothes": "Turtleneck",
+    "Face": "Scarface",
+    "Head": "Gentleman"
+  },
+  "83": {
+    "Background": "Orange",
+    "Fur": "Eastern",
+    "Clothes": "Thriller Jacket",
+    "Face": "Round Glasses",
+    "Head": "Mohawk"
+  },
+  "84": {
+    "Background": "Purple",
+    "Fur": "Zombie",
+    "Clothes": "Leather Jacket",
+    "Face": "Pirate",
+    "Head": "Gentleman"
+  },
+  "85": {
+    "Background": "Orange",
+    "Fur": "Fox",
+    "Clothes": "Basketball Shirt",
+    "Face": "Depressed",
+    "Head": "Hoop Earring"
+  },
+  "86": {
+    "Background": "Pink",
+    "Fur": "Torch Key",
+    "Clothes": "Vintage Suspenders",
+    "Face": "Sad",
+    "Head": "Mohawk"
+  },
+  "87": {
+    "Background": "Light Blue",
+    "Fur": "Red",
+    "Clothes": "Striped Shirt",
+    "Face": "Cyborg",
+    "Head": "Gentleman"
+  },
+  "88": {
+    "Background": "Yellow",
+    "Fur": "Guadeloupe",
+    "Clothes": "Jacket",
+    "Face": "Happy",
+    "Head": "Cap"
+  },
+  "89": {
+    "Background": "Orange",
+    "Fur": "Alien",
+    "Clothes": "Backpack",
+    "Face": "Plague Doctor",
+    "Head": "Witch"
+  },
+  "90": {
+    "Background": "Cyber",
+    "Fur": "Torch Key",
+    "Clothes": "Bee",
+    "Face": "Happy",
+    "Head": "Flower"
+  },
+  "91": {
+    "Background": "Torch Red",
+    "Fur": "Torch Key",
+    "Clothes": "Duck Disguise",
+    "Face": "Jade Cat Eye"
+  },
+  "92": {
+    "Background": "Yellow",
+    "Fur": "Red",
+    "Clothes": "Pearl Collar",
+    "Face": "Down Bad",
+    "Head": "Cap"
+  },
+  "93": {
+    "Background": "Green",
+    "Fur": "Red",
+    "Clothes": "Sports Bra",
+    "Face": "Dollar",
+    "Head": "Banana"
+  },
+  "94": {
+    "Background": "Yellow",
+    "Fur": "Guadeloupe",
+    "Clothes": "Turtleneck",
+    "Face": "Love",
+    "Head": "Headbow"
+  },
+  "95": {
+    "Background": "Cyber",
+    "Fur": "Cyborg",
+    "Face": "Cyborg"
+  },
+  "96": {
+    "Background": "Rubine Red",
+    "Fur": "Eastern",
+    "Clothes": "Gentleman",
+    "Face": "Down Bad",
+    "Head": "Viking"
+  },
+  "97": {
+    "Background": "Purple",
+    "Fur": "Pink",
+    "Clothes": "Black Shirt",
+    "Face": "Happy",
+    "Head": "Winter Cap"
+  },
+  "98": {
+    "Background": "Yellow",
+    "Fur": "Eastern",
+    "Clothes": "White Shirt",
+    "Face": "Delicious",
+    "Head": "Explorer"
+  },
+  "99": {
+    "Background": "Torch Red",
+    "Fur": "Caramel",
+    "Face": "Cool",
+    "Head": "Golden Earring"
+  },
+  "100": {
+    "Background": "Lemon",
+    "Fur": "Alien",
+    "Clothes": "Gentleman",
+    "Face": "Depressed",
+    "Head": "Captain"
+  }
+}
