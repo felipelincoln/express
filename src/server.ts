@@ -32,7 +32,10 @@ const mongoDbUri =
 
 const client = new MongoClient(mongoDbUri);
 
-export interface OrderWithSignature {
+export type WithSignature<T> = T & { signature: string };
+export type WithOrderHash<T> = T & { orderHash: string };
+
+export interface Order {
   token: string;
   tokenId: string;
   offerer: string;
@@ -46,7 +49,6 @@ export interface OrderWithSignature {
     };
   };
   endTime: string;
-  signature: string;
 }
 
 app.get('/tokens/:collection/:userAddress', async (req, res) => {
