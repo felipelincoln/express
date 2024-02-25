@@ -2,7 +2,8 @@
   "name": "express",
   "version": "1.0.0",
   "scripts": {
-    "dev": "nodemon src/server.ts"
+    "dev": "nodemon src/server.ts",
+    "listen": "nodemon src/transferListener.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.14",

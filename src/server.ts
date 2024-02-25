@@ -178,6 +178,7 @@ app.listen(3000, async () => {
           'offerer',
           'endTime',
           'signature',
+          'orderHash',
           'fulfillmentCriteria',
         ],
         properties: {
@@ -201,6 +202,10 @@ app.listen(3000, async () => {
           signature: {
             bsonType: 'string',
             description: "'signature' is required (string)",
+          },
+          orderHash: {
+            bsonType: 'string',
+            description: "'orderHash' is required (string)",
           },
           fulfillmentCriteria: {
             bsonType: 'object',
