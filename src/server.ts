@@ -167,7 +167,6 @@ app.post('/orders/list/', async (req, res) => {
 });
 
 app.listen(3000, async () => {
-  /*
   await client.db('mongodb').createCollection('orders', {
     validator: {
       $jsonSchema: {
@@ -255,8 +254,128 @@ app.listen(3000, async () => {
     },
   });
 
-  await client.db('mongodb').collection('orders').createIndex({ token: 1, tokenId: 1 }, { unique: true });
-  */
+  await client.db('mongodb').createCollection('event', {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        additionalProperties: false,
+        required: [
+          '_id',
+          'etype',
+          'tokenId',
+          'token',
+          'offerer',
+          'fulfiller',
+          'fulfillment',
+          'txHash',
+          'createdAt',
+        ],
+        properties: {
+          _id: { bsonType: 'objectId' },
+          etype: {
+            bsonType: 'string',
+            enum: ['trade'],
+            description: "'tokenId' is required (string)",
+          },
+          tokenId: {
+            bsonType: 'string',
+            description: "'tokenId' is required (string)",
+          },
+          token: {
+            bsonType: 'string',
+            description: "'token' is required (string)",
+          },
+          offerer: {
+            bsonType: 'string',
+            description: "'offerer' is required (string)",
+          },
+          fulfiller: {
+            bsonType: 'string',
+            description: "'fulfiller' is required (string)",
+          },
+          txHash: {
+            bsonType: 'string',
+            description: "'TxHash' is required (string)",
+          },
+          createdAt: {
+            bsonType: 'string',
+            description: "'createdAt' is required (string)",
+          },
+          fulfillment: {
+            bsonType: 'object',
+            additionalProperties: false,
+            description: "'fulfillment' is required (object)",
+            required: ['token'],
+            properties: {
+              coin: {
+                bsonType: 'object',
+                additionalProperties: false,
+                description: "'coin' is required (object)",
+                required: ['amount'],
+                properties: {
+                  amount: {
+                    bsonType: 'string',
+                    description: "'amount' is required (string)",
+                  },
+                },
+              },
+              token: {
+                bsonType: 'object',
+                additionalProperties: false,
+                description: "'token' is required (object)",
+                required: ['amount', 'identifier'],
+                properties: {
+                  amount: {
+                    bsonType: 'string',
+                    description: "'amount' is required (string)",
+                  },
+                  identifier: {
+                    bsonType: 'array',
+                    description: "'identifier' is required (array)",
+                    items: {
+                      bsonType: 'string',
+                      description: "'identifier' is required (string)",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await client.db('mongodb').createCollection('notification', {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        additionalProperties: false,
+        required: ['_id', 'eventId', 'address'],
+        properties: {
+          _id: { bsonType: 'objectId' },
+          eventId: {
+            bsonType: 'objectId',
+            description: "'eventId' is required (string)",
+          },
+          address: {
+            bsonType: 'string',
+            description: "'address' is required (string)",
+          },
+        },
+      },
+    },
+  });
+
+  await client
+    .db('mongodb')
+    .collection('orders')
+    .createIndex({ token: 1, tokenId: 1 }, { unique: true });
+  await client.db('mongodb').collection('event').createIndex({ txHash: 1 }, { unique: true });
+  await client
+    .db('mongodb')
+    .collection('notification')
+    .createIndex({ eventId: 1 }, { unique: true });
 
   console.log(`⚡️[server]: Server is running at http://localhost:3000`);
 });
