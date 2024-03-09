@@ -5,7 +5,7 @@ import { Order, WithOrderHash, WithSignature } from './server';
 import { decodeEventLog } from 'viem';
 import seaportABI from './seaport.abi.json';
 
-interface Event {
+interface Activity {
   etype: string;
   token: string;
   tokenId: string;
@@ -54,7 +54,7 @@ async function run() {
       topics: fulfilledOrder.topics as [],
     });
 
-    const args = decodedLog.args as {
+    const args = decodedLog.args as any as {
       orderHash: string;
       recipient: string;
       consideration: { token: string; identifier: bigint }[];
@@ -70,7 +70,7 @@ async function run() {
       .filter((c) => c.token.toLowerCase() == activeOrder.token)
       .map((c) => c.identifier.toString());
 
-    const event = {
+    const activity = {
       etype: 'trade',
       token: activeOrder.token,
       tokenId: activeOrder.tokenId,
@@ -84,23 +84,23 @@ async function run() {
       },
       txHash,
       createdAt: Date.now().toString(),
-    } as Event;
+    } as Activity;
 
     if (activeOrder.fulfillmentCriteria.coin) {
-      event.fulfillment.coin = activeOrder.fulfillmentCriteria.coin;
+      activity.fulfillment.coin = activeOrder.fulfillmentCriteria.coin;
     }
 
-    const eventInsertResult = await mongoClient
+    const activityInsertResult = await mongoClient
       .db('mongodb')
-      .collection('event')
-      .insertOne(event)
+      .collection('activity')
+      .insertOne(activity)
       .catch((e) => {
         console.log(e);
         throw new Error('?????????');
       });
 
     const notification = {
-      eventId: eventInsertResult.insertedId,
+      activityId: activityInsertResult.insertedId,
       address: activeOrder.offerer,
     };
 

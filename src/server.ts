@@ -3,7 +3,7 @@ import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
 import { supportedCollections } from './collections';
-import { isValidObject, isValidString, isValidTokenIds } from './queryValidator';
+import { isValidAddress, isValidObject, isValidString, isValidTokenIds } from './queryValidator';
 import { EthereumNetwork, config } from './config';
 
 const app = express();
@@ -166,7 +166,56 @@ app.post('/orders/list/', async (req, res) => {
   res.json({ data: { orders } });
 });
 
+app.post('/activity/list/', async (req, res) => {
+  const { address, collection }: { address?: string; collection: string } = req.body;
+
+  if (address && !isValidAddress(address)) {
+    res.status(400).json({ error: 'invalid `address` field' });
+    return;
+  }
+
+  const query: { token: string; $or?: Object[] } = { token: collection };
+
+  if (!!address) {
+    query.$or = [{ fulfiller: address }, { offerer: address }];
+  }
+
+  const activities = await client.db('mongodb').collection('activity').find(query).toArray();
+
+  res.json({ data: { activities } });
+});
+
+// TODO: add collection + chain on notifications table
+app.get('/notifications/:collection/:userAddress', async (req, res) => {
+  const { collection, userAddress } = req.params;
+  const { address: contractAddress } = supportedCollections[collection] || {};
+
+  if (!contractAddress) {
+    res.status(400).json({ error: 'Collection not supported' });
+    return;
+  }
+
+  const query = { address: userAddress };
+  const notifications = await client.db('mongodb').collection('notification').find(query).toArray();
+
+  res.json({ data: { notifications } });
+});
+
+app.post('/notifications/view/', async (req, res) => {
+  const { notificationIds }: { notificationIds: string[] } = req.body;
+
+  // TODO: validate input
+
+  const notificationObjectIds = notificationIds.map((id) => new ObjectId(id));
+
+  const query = { _id: { $in: notificationObjectIds } };
+  const notifications = await client.db('mongodb').collection('notification').deleteMany(query);
+
+  res.json({ data: { notifications } });
+});
+
 app.listen(3000, async () => {
+  /*
   await client.db('mongodb').createCollection('orders', {
     validator: {
       $jsonSchema: {
@@ -254,7 +303,7 @@ app.listen(3000, async () => {
     },
   });
 
-  await client.db('mongodb').createCollection('event', {
+  await client.db('mongodb').createCollection('activity', {
     validator: {
       $jsonSchema: {
         bsonType: 'object',
@@ -351,12 +400,12 @@ app.listen(3000, async () => {
       $jsonSchema: {
         bsonType: 'object',
         additionalProperties: false,
-        required: ['_id', 'eventId', 'address'],
+        required: ['_id', 'activityId', 'address'],
         properties: {
           _id: { bsonType: 'objectId' },
-          eventId: {
+          activityId: {
             bsonType: 'objectId',
-            description: "'eventId' is required (string)",
+            description: "'activityId' is required (string)",
           },
           address: {
             bsonType: 'string',
@@ -371,11 +420,12 @@ app.listen(3000, async () => {
     .db('mongodb')
     .collection('orders')
     .createIndex({ token: 1, tokenId: 1 }, { unique: true });
-  await client.db('mongodb').collection('event').createIndex({ txHash: 1 }, { unique: true });
+  await client.db('mongodb').collection('activity').createIndex({ txHash: 1 }, { unique: true });
   await client
     .db('mongodb')
     .collection('notification')
-    .createIndex({ eventId: 1 }, { unique: true });
+    .createIndex({ activityId: 1 }, { unique: true });
+    */
 
   console.log(`⚡️[server]: Server is running at http://localhost:3000`);
 });
@@ -399,7 +449,7 @@ interface Order {
   signature?: string;
 }
 
-interface Event {
+interface activity {
   etype: string;
   tokenId: string;
   offerer: string;
@@ -420,12 +470,12 @@ interface Event {
 }
 
 interface Notification {
-  eventId: string;
+  activityId: string;
   address: string;
 }
 
-function createEvent(transaction: TransactionReceipt): Event | undefined {
-  const event: Event = {
+function createactivity(transaction: TransactionReceipt): activity | undefined {
+  const activity: activity = {
     block_hash: transaction.blockHash,
     block_height: transaction.blockNumber,
     txn_hash: transaction.transactionHash,
@@ -445,7 +495,7 @@ function createEvent(transaction: TransactionReceipt): Event | undefined {
     etype: 'trade',
   };
 
-  return event;
+  return activity;
 }
 
 app.get('/healthcheck/', async (req, res) => {
@@ -521,9 +571,9 @@ app.post('/orders/fulfill/', async (req, res) => {
     return;
   }
 
-  const event = createEvent(transaction);
+  const activity = createactivity(transaction);
 
-  if (!event) {
+  if (!activity) {
     res.status(400).send('Bad Request');
     return;
   }
@@ -538,28 +588,28 @@ app.post('/orders/fulfill/', async (req, res) => {
     return;
   }
 
-  if (order.tokenId != event.tokenId || order.offerer != event.offerer) {
+  if (order.tokenId != activity.tokenId || order.offerer != activity.offerer) {
     res.status(400).send('Bad Request');
     return;
   }
 
   console.log('/orders/fulfill/');
-  console.log({ order, event });
+  console.log({ order, activity });
 
   await client.db('mongodb').collection('orders').deleteOne(order._id);
-  const { insertedId: eventObjectId } = await client
+  const { insertedId: activityObjectId } = await client
     .db('mongodb')
-    .collection('events')
-    .insertOne(event);
+    .collection('activitys')
+    .insertOne(activity);
 
   const notificationOfferer: Notification = {
-    address: event.offerer,
-    eventId: eventObjectId.toString(),
+    address: activity.offerer,
+    activityId: activityObjectId.toString(),
   };
 
   const notificationFulfiller: Notification = {
-    address: event.fulfiller,
-    eventId: eventObjectId.toString(),
+    address: activity.fulfiller,
+    activityId: activityObjectId.toString(),
   };
 
   await client
@@ -594,16 +644,16 @@ app.post('/orders/cancel/', async (req, res) => {
     .findOneAndDelete({ _id: new ObjectId(orderId) });
 });
 
-app.post('/events/', async (req, res) => {
+app.post('/activitys/', async (req, res) => {
   const { address }: { address?: string } = req.body;
 
   if (!!address && !isValidAddress(address)) {
     res.status(400).send('Bad Request');
   }
 
-  const events = await client.db('mongodb').collection<Event>('events').find({ address }).toArray();
+  const activitys = await client.db('mongodb').collection<activity>('activitys').find({ address }).toArray();
 
-  res.json({ data: events });
+  res.json({ data: activitys });
 });
 
 app.post('/notifications/count/', async (req, res) => {
