@@ -180,7 +180,9 @@ app.post('/activity/list/', async (req, res) => {
     query.$or = [{ fulfiller: address }, { offerer: address }];
   }
 
-  const activities = await client.db('mongodb').collection('activity').find(query).toArray();
+  const activities = (
+    await client.db('mongodb').collection('activity').find(query).toArray()
+  ).reverse();
 
   res.json({ data: { activities } });
 });
