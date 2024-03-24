@@ -167,17 +167,30 @@ app.post('/orders/list/', async (req, res) => {
 });
 
 app.post('/activity/list/', async (req, res) => {
-  const { address, collection }: { address?: string; collection: string } = req.body;
+  const {
+    address,
+    collection,
+    tokenIds,
+  }: { address?: string; collection: string; tokenIds?: string[] } = req.body;
 
   if (address && !isValidAddress(address)) {
     res.status(400).json({ error: 'invalid `address` field' });
     return;
   }
 
-  const query: { token: string; $or?: Object[] } = { token: collection };
+  if (tokenIds && !isValidTokenIds(tokenIds)) {
+    res.status(400).json({ error: 'invalid `tokenIds` field' });
+    return;
+  }
+
+  const query: { token: string; $or?: Object[]; tokenId?: Object } = { token: collection };
 
   if (!!address) {
     query.$or = [{ fulfiller: address }, { offerer: address }];
+  }
+
+  if (!!tokenIds) {
+    query.tokenId = { $in: tokenIds };
   }
 
   const activities = (
