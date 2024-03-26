@@ -8,30 +8,19 @@ import { EthereumNetwork, config } from './config';
 import winston from 'winston';
 
 const logger = winston.createLogger({
-  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.colorize(),
+    winston.format.printf(
+      ({ level, message, timestamp, context }) =>
+        `${timestamp} ${level} ${message} ${context ? JSON.stringify(context) : ''}`,
+    ),
+  ),
   transports: [
     new winston.transports.Console(),
     new winston.transports.File({ filename: `log/all.log` }),
   ],
 });
-
-function getRequestMetadata(req: any, res: any, ms: number, info?: {}) {
-  return {
-    request: {
-      method: req.method,
-      route: req.route.path,
-      params: req.params,
-      query: req.query,
-      body: req.body,
-    },
-    response: { status: res.statusCode, ms, info },
-  };
-}
-
-const app = express();
-
-app.use(express.json());
-app.use(cors({ origin: '*' }));
 
 const alchemyNetwork = (() => {
   switch (config.ethereumNetwork) {
@@ -73,17 +62,34 @@ export interface Order {
   endTime: string;
 }
 
-app.get('/tokens/:collection/:userAddress', async (req, res) => {
-  const startTime = Date.now();
+const app = express();
+
+app.use(express.json());
+app.use(cors({ origin: '*' }));
+app.use((_, res, next) => {
+  const json = res.json;
+
+  res.json = function (body?: any) {
+    res.locals.error = body.error;
+    return json.call(this, body);
+  };
+
+  res.status(404);
+
+  next();
+});
+app.use((_, res, next) => {
+  res.locals.startTime = Date.now();
+  next();
+});
+
+app.get('/tokens/:collection/:userAddress', async (req, res, next) => {
   const { collection, userAddress } = req.params;
   const { address: contractAddress } = supportedCollections[collection] || {};
 
   if (!contractAddress) {
     res.status(400).json({ error: 'Collection not supported' });
-    logger.warn(
-      "Failed obtaining user's nfts: Collection not supported",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
@@ -97,15 +103,11 @@ app.get('/tokens/:collection/:userAddress', async (req, res) => {
     tokens.push(value.tokenId);
   }
 
-  res.json({ data: { tokens } });
-  logger.info(
-    "Successfully obtained user's nfts",
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { tokens } });
+  next();
 });
 
-app.post('/tokens/:collection', async (req, res) => {
-  const startTime = Date.now();
+app.post('/tokens/:collection', async (req, res, next) => {
   const { collection: collectionRequest } = req.params;
   const {
     tokenIds: tokenIdsRequest,
@@ -114,47 +116,30 @@ app.post('/tokens/:collection', async (req, res) => {
 
   if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
     res.status(400).json({ error: 'invalid `tokenIds` field' });
-    logger.warn(
-      "Failed obtaining collection's nfts: invalid `tokenIds` field",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
   if (!filters) {
     res.status(400).json({ error: '`filters` field is required' });
-    logger.warn(
-      "Failed obtaining collection's nfts: `filters` field is required",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
     return;
   }
 
   if (!isValidObject(filters)) {
     res.status(400).json({ error: 'invalid `filters` field' });
-    logger.warn(
-      "Failed obtaining collection's nfts: invalid `filters` field",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
   if (!Object.entries(filters).flat().every(isValidString)) {
     res.status(400).json({ error: 'invalid `filters` field' });
-    logger.warn(
-      "Failed obtaining collection's nfts: invalid `filters` field",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
   const collection = supportedCollections[collectionRequest];
   if (!collection) {
     res.status(400).json({ error: 'collection not supported' });
-    logger.warn(
-      "Failed obtaining collection's nfts: collection not supported",
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
     return;
   }
 
@@ -170,23 +155,16 @@ app.post('/tokens/:collection', async (req, res) => {
     return true;
   });
 
-  res.json({ data: { tokens: filteredTokenIds } });
-  logger.info(
-    "Successfully obtained collection's nfts",
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { tokens: filteredTokenIds } });
+  next();
 });
 
-app.post('/orders/create/', async (req, res) => {
-  const startTime = Date.now();
+app.post('/orders/create/', async (req, res, next) => {
   const { order } = req.body;
 
   if (!order) {
     res.status(400).json({ error: 'missing `order` field in request body' });
-    logger.warn(
-      'Failed creating order: missing `order` field in request body',
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
@@ -195,44 +173,28 @@ app.post('/orders/create/', async (req, res) => {
     .collection('orders')
     .insertOne({ ...order })
     .then((result) => {
-      res.json({ data: 'Order created' });
-      logger.info(
-        'Successfully created new order',
-        getRequestMetadata(req, res, Date.now() - startTime),
-      );
+      res.status(200).json({ data: 'Order created' });
     })
     .catch((err) => {
       switch (err.code) {
         case 11000:
           res.status(400).json({ error: `${order.tokenId} is listed` });
-          logger.warn(
-            `Failed creating order: ${order.tokenId} is listed`,
-            getRequestMetadata(req, res, Date.now() - startTime),
-          );
+          next();
           return;
         default:
           res.status(500).json({ error: 'Internal Server Error' });
-          logger.warn(
-            'Failed creating order: Internal Server Error',
-            getRequestMetadata(req, res, Date.now() - startTime, {
-              unhandled_error: { order, err, errInfo: err.errInfo },
-            }),
-          );
+          next();
           return;
       }
     });
 });
 
-app.post('/orders/list/', async (req, res) => {
-  const startTime = Date.now();
+app.post('/orders/list/', async (req, res, next) => {
   const { tokenIds, collection }: { tokenIds: string[]; collection: string } = req.body;
 
   if (tokenIds && !isValidTokenIds(tokenIds)) {
     res.status(400).json({ error: 'invalid `tokenIds` field' });
-    logger.warn(
-      'Failed obtaining list of orders: invalid `tokenIds` field',
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
@@ -244,15 +206,11 @@ app.post('/orders/list/', async (req, res) => {
 
   const orders = await client.db('mongodb').collection('orders').find(query).toArray();
 
-  res.json({ data: { orders } });
-  logger.info(
-    'Successfully obtained list of orders',
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { orders } });
+  next();
 });
 
-app.post('/activity/list/', async (req, res) => {
-  const startTime = Date.now();
+app.post('/activity/list/', async (req, res, next) => {
   const {
     address,
     collection,
@@ -261,19 +219,13 @@ app.post('/activity/list/', async (req, res) => {
 
   if (address && !isValidAddress(address)) {
     res.status(400).json({ error: 'invalid `address` field' });
-    logger.warn(
-      'Failed obtaining list of activities: invalid `address` field',
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
   if (tokenIds && !isValidTokenIds(tokenIds)) {
     res.status(400).json({ error: 'invalid `tokenIds` field' });
-    logger.warn(
-      'Failed obtaining list of activities: invalid `tokenIds` field',
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
@@ -291,40 +243,29 @@ app.post('/activity/list/', async (req, res) => {
     await client.db('mongodb').collection('activity').find(query).toArray()
   ).reverse();
 
-  res.json({ data: { activities } });
-  logger.info(
-    'Successfully obtained list of activities',
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { activities } });
+  next();
 });
 
 // TODO: add collection + chain on notifications table
-app.get('/notifications/:collection/:userAddress', async (req, res) => {
-  const startTime = Date.now();
+app.get('/notifications/:collection/:userAddress', async (req, res, next) => {
   const { collection, userAddress } = req.params;
   const { address: contractAddress } = supportedCollections[collection] || {};
 
   if (!contractAddress) {
     res.status(400).json({ error: 'collection not supported' });
-    logger.warn(
-      'Failed obtaining list of notifications: collection not supported',
-      getRequestMetadata(req, res, Date.now() - startTime),
-    );
+    next();
     return;
   }
 
   const query = { address: userAddress };
   const notifications = await client.db('mongodb').collection('notification').find(query).toArray();
 
-  res.json({ data: { notifications } });
-  logger.info(
-    'Successfully obtained list of notifications',
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { notifications } });
+  next();
 });
 
-app.post('/notifications/view/', async (req, res) => {
-  const startTime = Date.now();
+app.post('/notifications/view/', async (req, res, next) => {
   const { notificationIds }: { notificationIds: string[] } = req.body;
 
   // TODO: validate input
@@ -334,14 +275,23 @@ app.post('/notifications/view/', async (req, res) => {
   const query = { _id: { $in: notificationObjectIds } };
   const notifications = await client.db('mongodb').collection('notification').deleteMany(query);
 
-  res.json({ data: { notifications } });
-  logger.info(
-    'Successfully viewed list of notifications',
-    getRequestMetadata(req, res, Date.now() - startTime),
-  );
+  res.status(200).json({ data: { notifications } });
+  next();
+});
+
+app.use((req, res, next) => {
+  const ms = Date.now() - res.locals.startTime;
+  const logMessage = `${res.statusCode} ${req.method} ${req.url} (${ms} ms)`;
+  const error = res.locals.error;
+
+  if ([200, 304].includes(res.statusCode)) {
+    logger.info(logMessage);
+  } else {
+    logger.warn(logMessage, { context: { error } });
+  }
+  next();
 });
 
 app.listen(3000, async () => {
   logger.info('Server started');
-  console.log('⚡️[server]: Server is running at http://localhost:3000');
 });
