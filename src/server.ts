@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
@@ -74,211 +74,247 @@ app.use((_, res, next) => {
     return json.call(this, body);
   };
 
+  res.locals.startTime = Date.now();
   res.status(404);
 
   next();
 });
-app.use((_, res, next) => {
-  res.locals.startTime = Date.now();
-  next();
-});
 
 app.get('/tokens/:collection/:userAddress', async (req, res, next) => {
-  const { collection, userAddress } = req.params;
-  const { address: contractAddress } = supportedCollections[collection] || {};
+  try {
+    const { collection, userAddress } = req.params;
+    const { address: contractAddress } = supportedCollections[collection] || {};
 
-  if (!contractAddress) {
-    res.status(400).json({ error: 'Collection not supported' });
+    if (!contractAddress) {
+      res.status(400).json({ error: 'Collection not supported' });
+      next();
+      return;
+    }
+
+    const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
+      contractAddresses: [contractAddress],
+      omitMetadata: true,
+    });
+
+    let tokens: string[] = [];
+    for await (const value of nfts) {
+      tokens.push(value.tokenId);
+    }
+
+    res.status(200).json({ data: { tokens } });
     next();
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
-    contractAddresses: [contractAddress],
-    omitMetadata: true,
-  });
-
-  let tokens: string[] = [];
-  for await (const value of nfts) {
-    tokens.push(value.tokenId);
-  }
-
-  res.status(200).json({ data: { tokens } });
-  next();
 });
 
 app.post('/tokens/:collection', async (req, res, next) => {
-  const { collection: collectionRequest } = req.params;
-  const {
-    tokenIds: tokenIdsRequest,
-    filters,
-  }: { tokenIds: string[]; filters: { [attribute: string]: string } } = req.body;
+  try {
+    const { collection: collectionRequest } = req.params;
+    const {
+      tokenIds: tokenIdsRequest,
+      filters,
+    }: { tokenIds: string[]; filters: { [attribute: string]: string } } = req.body;
 
-  if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
-    res.status(400).json({ error: 'invalid `tokenIds` field' });
-    next();
-    return;
-  }
-
-  if (!filters) {
-    res.status(400).json({ error: '`filters` field is required' });
-    return;
-  }
-
-  if (!isValidObject(filters)) {
-    res.status(400).json({ error: 'invalid `filters` field' });
-    next();
-    return;
-  }
-
-  if (!Object.entries(filters).flat().every(isValidString)) {
-    res.status(400).json({ error: 'invalid `filters` field' });
-    next();
-    return;
-  }
-
-  const collection = supportedCollections[collectionRequest];
-  if (!collection) {
-    res.status(400).json({ error: 'collection not supported' });
-    return;
-  }
-
-  const tokenIds = tokenIdsRequest || collection.mintedTokens;
-  const filteredTokenIds = tokenIds.filter((tokenId: string) => {
-    const metadata = collection.metadata[tokenId];
-
-    for (const [attribute, value] of Object.entries(filters)) {
-      if (metadata[attribute] != value) {
-        return false;
-      }
+    if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
+      res.status(400).json({ error: 'invalid `tokenIds` field' });
+      next();
+      return;
     }
-    return true;
-  });
 
-  res.status(200).json({ data: { tokens: filteredTokenIds } });
-  next();
+    if (!filters) {
+      res.status(400).json({ error: '`filters` field is required' });
+      next();
+      return;
+    }
+
+    if (!isValidObject(filters)) {
+      res.status(400).json({ error: 'invalid `filters` field' });
+      next();
+      return;
+    }
+
+    if (!Object.entries(filters).flat().every(isValidString)) {
+      res.status(400).json({ error: 'invalid `filters` field' });
+      next();
+      return;
+    }
+
+    const collection = supportedCollections[collectionRequest];
+    if (!collection) {
+      res.status(400).json({ error: 'collection not supported' });
+      next();
+      return;
+    }
+
+    const tokenIds = tokenIdsRequest || collection.mintedTokens;
+    const filteredTokenIds = tokenIds.filter((tokenId: string) => {
+      const metadata = collection.metadata[tokenId];
+
+      for (const [attribute, value] of Object.entries(filters)) {
+        if (metadata[attribute] != value) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    res.status(200).json({ data: { tokens: filteredTokenIds } });
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post('/orders/create/', async (req, res, next) => {
-  const { order } = req.body;
+  try {
+    const { order } = req.body;
 
-  if (!order) {
-    res.status(400).json({ error: 'missing `order` field in request body' });
+    if (!order) {
+      res.status(400).json({ error: 'missing `order` field in request body' });
+      next();
+      return;
+    }
+
+    await client
+      .db('mongodb')
+      .collection('orders')
+      .insertOne({ ...order });
+
+    res.status(200).json({ data: 'Order created' });
     next();
-    return;
-  }
+  } catch (err) {
+    const dbErrorCode = (err as any).code;
 
-  client
-    .db('mongodb')
-    .collection('orders')
-    .insertOne({ ...order })
-    .then((result) => {
-      res.status(200).json({ data: 'Order created' });
-    })
-    .catch((err) => {
-      switch (err.code) {
-        case 11000:
-          res.status(400).json({ error: `${order.tokenId} is listed` });
-          next();
-          return;
-        default:
-          res.status(500).json({ error: 'Internal Server Error' });
-          next();
-          return;
-      }
-    });
+    switch (dbErrorCode) {
+      case 11000:
+        res.status(400).json({ error: `${req.body.order.tokenId} is listed` });
+        next();
+        return;
+      default:
+        next(err);
+    }
+  }
 });
 
 app.post('/orders/list/', async (req, res, next) => {
-  const { tokenIds, collection }: { tokenIds: string[]; collection: string } = req.body;
+  try {
+    const { tokenIds, collection }: { tokenIds: string[]; collection: string } = req.body;
 
-  if (tokenIds && !isValidTokenIds(tokenIds)) {
-    res.status(400).json({ error: 'invalid `tokenIds` field' });
+    if (tokenIds && !isValidTokenIds(tokenIds)) {
+      res.status(400).json({ error: 'invalid `tokenIds` field' });
+      next();
+      return;
+    }
+
+    const query: { token: string; tokenId?: object } = { token: collection };
+
+    if (!!tokenIds) {
+      query.tokenId = { $in: tokenIds };
+    }
+
+    const orders = await client.db('mongodb').collection('orders').find(query).toArray();
+
+    res.status(200).json({ data: { orders } });
     next();
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  const query: { token: string; tokenId?: object } = { token: collection };
-
-  if (!!tokenIds) {
-    query.tokenId = { $in: tokenIds };
-  }
-
-  const orders = await client.db('mongodb').collection('orders').find(query).toArray();
-
-  res.status(200).json({ data: { orders } });
-  next();
 });
 
 app.post('/activity/list/', async (req, res, next) => {
-  const {
-    address,
-    collection,
-    tokenIds,
-  }: { address?: string; collection: string; tokenIds?: string[] } = req.body;
+  try {
+    const {
+      address,
+      collection,
+      tokenIds,
+    }: { address?: string; collection: string; tokenIds?: string[] } = req.body;
 
-  if (address && !isValidAddress(address)) {
-    res.status(400).json({ error: 'invalid `address` field' });
+    if (address && !isValidAddress(address)) {
+      res.status(400).json({ error: 'invalid `address` field' });
+      next();
+      return;
+    }
+
+    if (tokenIds && !isValidTokenIds(tokenIds)) {
+      res.status(400).json({ error: 'invalid `tokenIds` field' });
+      next();
+      return;
+    }
+
+    const query: { token: string; $or?: Object[]; tokenId?: Object } = { token: collection };
+
+    if (!!address) {
+      query.$or = [{ fulfiller: address }, { offerer: address }];
+    }
+
+    if (!!tokenIds) {
+      query.tokenId = { $in: tokenIds };
+    }
+
+    const activities = (
+      await client.db('mongodb').collection('activity').find(query).toArray()
+    ).reverse();
+
+    res.status(200).json({ data: { activities } });
     next();
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  if (tokenIds && !isValidTokenIds(tokenIds)) {
-    res.status(400).json({ error: 'invalid `tokenIds` field' });
-    next();
-    return;
-  }
-
-  const query: { token: string; $or?: Object[]; tokenId?: Object } = { token: collection };
-
-  if (!!address) {
-    query.$or = [{ fulfiller: address }, { offerer: address }];
-  }
-
-  if (!!tokenIds) {
-    query.tokenId = { $in: tokenIds };
-  }
-
-  const activities = (
-    await client.db('mongodb').collection('activity').find(query).toArray()
-  ).reverse();
-
-  res.status(200).json({ data: { activities } });
-  next();
 });
 
 // TODO: add collection + chain on notifications table
 app.get('/notifications/:collection/:userAddress', async (req, res, next) => {
-  const { collection, userAddress } = req.params;
-  const { address: contractAddress } = supportedCollections[collection] || {};
+  try {
+    const { collection, userAddress } = req.params;
+    const { address: contractAddress } = supportedCollections[collection] || {};
 
-  if (!contractAddress) {
-    res.status(400).json({ error: 'collection not supported' });
+    if (!contractAddress) {
+      res.status(400).json({ error: 'collection not supported' });
+      next();
+      return;
+    }
+
+    const query = { address: userAddress };
+    const notifications = await client
+      .db('mongodb')
+      .collection('notification')
+      .find(query)
+      .toArray();
+
+    res.status(200).json({ data: { notifications } });
     next();
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  const query = { address: userAddress };
-  const notifications = await client.db('mongodb').collection('notification').find(query).toArray();
-
-  res.status(200).json({ data: { notifications } });
-  next();
 });
 
 app.post('/notifications/view/', async (req, res, next) => {
-  const { notificationIds }: { notificationIds: string[] } = req.body;
+  try {
+    const { notificationIds }: { notificationIds: string[] } = req.body;
 
-  // TODO: validate input
+    // TODO: validate input
 
-  const notificationObjectIds = notificationIds.map((id) => new ObjectId(id));
+    const notificationObjectIds = notificationIds.map((id) => new ObjectId(id));
 
-  const query = { _id: { $in: notificationObjectIds } };
-  const notifications = await client.db('mongodb').collection('notification').deleteMany(query);
+    const query = { _id: { $in: notificationObjectIds } };
+    const notifications = await client.db('mongodb').collection('notification').deleteMany(query);
 
-  res.status(200).json({ data: { notifications } });
-  next();
+    res.status(200).json({ data: { notifications } });
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
+// Error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
+  res.status(500).json({ error: 'Internal server error' });
+  next();
+  logger.error(err.stack);
+});
+
+// Logger
 app.use((req, res, next) => {
   const ms = Date.now() - res.locals.startTime;
   const logMessage = `${res.statusCode} ${req.method} ${req.url} (${ms} ms)`;
@@ -286,6 +322,8 @@ app.use((req, res, next) => {
 
   if ([200, 304].includes(res.statusCode)) {
     logger.info(logMessage);
+  } else if ([500].includes(res.statusCode)) {
+    logger.error(logMessage, { context: { error } });
   } else {
     logger.warn(logMessage, { context: { error } });
   }
