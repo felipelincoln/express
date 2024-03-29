@@ -80,6 +80,17 @@ app.use((_, res, next) => {
   next();
 });
 
+app.get('/user/balance/:userAddress', async (req, res, next) => {
+  try {
+    const balance = (await alchemy.core.getBalance(req.params.userAddress)).toString();
+
+    res.status(200).json({ data: { balance } });
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/tokens/:collection/:userAddress', async (req, res, next) => {
   try {
     const { collection, userAddress } = req.params;
