@@ -6,6 +6,7 @@ import { supportedCollections } from './collections';
 import { isValidAddress, isValidObject, isValidString, isValidTokenIds } from './queryValidator';
 import { EthereumNetwork, config } from './config';
 import winston from 'winston';
+import { MethodNotFoundRpcError } from 'viem';
 
 const logger = winston.createLogger({
   format: winston.format.combine(
@@ -80,18 +81,19 @@ app.use((_, res, next) => {
   next();
 });
 
-app.get('/user/balance/:userAddress', async (req, res, next) => {
+app.post('/jsonrpc', async (req, res, next) => {
   try {
-    const balance = (await alchemy.core.getBalance(req.params.userAddress)).toString();
+    const { method, params, id, jsonrpc } = req.body;
+    const result = await alchemy.core.send(method, params);
 
-    res.status(200).json({ data: { balance } });
+    res.status(200).json({ jsonrpc, id, result });
     next();
   } catch (err) {
     next(err);
   }
 });
 
-app.get('/tokens/:collection/:userAddress', async (req, res, next) => {
+app.get('/eth/tokens/:collection/:userAddress', async (req, res, next) => {
   try {
     const { collection, userAddress } = req.params;
     const { address: contractAddress } = supportedCollections[collection] || {};
@@ -208,9 +210,17 @@ app.post('/orders/create/', async (req, res, next) => {
   }
 });
 
-app.post('/orders/list/', async (req, res, next) => {
+app.post('/orders/list/:collection', async (req, res, next) => {
   try {
-    const { tokenIds, collection }: { tokenIds: string[]; collection: string } = req.body;
+    const { tokenIds }: { tokenIds?: string[] } = req.body;
+    const { collection } = req.params;
+    const { address: contractAddress } = supportedCollections[collection] || {};
+
+    if (!contractAddress) {
+      res.status(400).json({ error: 'Collection not supported' });
+      next();
+      return;
+    }
 
     if (tokenIds && !isValidTokenIds(tokenIds)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
@@ -218,10 +228,11 @@ app.post('/orders/list/', async (req, res, next) => {
       return;
     }
 
-    const query: { token: string; tokenId?: object } = { token: collection };
+    let tokenQuery = { token: contractAddress };
+    let query: {} = tokenQuery;
 
     if (!!tokenIds) {
-      query.tokenId = { $in: tokenIds };
+      query = { $and: [tokenQuery, { tokenId: { $in: tokenIds } }] };
     }
 
     const orders = await client.db('mongodb').collection('orders').find(query).toArray();
@@ -233,13 +244,17 @@ app.post('/orders/list/', async (req, res, next) => {
   }
 });
 
-app.post('/activity/list/', async (req, res, next) => {
+app.post('/activities/list/:collection', async (req, res, next) => {
   try {
-    const {
-      address,
-      collection,
-      tokenIds,
-    }: { address?: string; collection: string; tokenIds?: string[] } = req.body;
+    const { address, tokenIds }: { address?: string; tokenIds?: string[] } = req.body;
+    const { collection } = req.params;
+    const { address: contractAddress } = supportedCollections[collection] || {};
+
+    if (!contractAddress) {
+      res.status(400).json({ error: 'Collection not supported' });
+      next();
+      return;
+    }
 
     if (address && !isValidAddress(address)) {
       res.status(400).json({ error: 'invalid `address` field' });
@@ -253,14 +268,17 @@ app.post('/activity/list/', async (req, res, next) => {
       return;
     }
 
-    const query: { token: string; $or?: Object[]; tokenId?: Object } = { token: collection };
+    let tokenQuery = { token: contractAddress };
+    let query: { $and: any[] } = { $and: [tokenQuery] };
 
     if (!!address) {
-      query.$or = [{ fulfiller: address }, { offerer: address }];
+      let addressQuery = { $or: [{ fulfiller: address }, { offerer: address }] };
+      query.$and.push(addressQuery);
     }
 
     if (!!tokenIds) {
-      query.tokenId = { $in: tokenIds };
+      let tokenIdQuery = { tokenId: { $in: tokenIds } };
+      query.$and.push(tokenIdQuery);
     }
 
     const activities = (
@@ -275,7 +293,7 @@ app.post('/activity/list/', async (req, res, next) => {
 });
 
 // TODO: add collection + chain on notifications table
-app.get('/notifications/:collection/:userAddress', async (req, res, next) => {
+app.get('/notifications/list/:collection/:userAddress', async (req, res, next) => {
   try {
     const { collection, userAddress } = req.params;
     const { address: contractAddress } = supportedCollections[collection] || {};
