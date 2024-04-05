@@ -4,6 +4,8 @@ import { mongoClient } from './mongodb';
 import { Order, WithOrderHash, WithSignature } from './server';
 import { decodeEventLog } from 'viem';
 import seaportABI from './seaport.abi.json';
+import { Db } from 'mongodb';
+import { Log } from 'alchemy-sdk';
 
 interface Activity {
   etype: string;
@@ -28,17 +30,36 @@ let isRunning = false;
 async function run() {
   isRunning = true;
 
-  const lastProcessedBlock = Number(fs.readFileSync('src/transferListenerState.txt', 'utf8'));
+  const lastProcessedBlock = Number(fs.readFileSync('src/eventListenerState.txt', 'utf8'));
 
-  const fulfilledOrders = await alchemyClient.core.getLogs({
-    address: '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC',
-    topics: ['0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31'],
-    fromBlock: lastProcessedBlock + 1,
-    toBlock: 'latest',
-  });
+  let fulfilledOrders = [];
+  let cancelledOrders = [];
+
+  try {
+    fulfilledOrders = await alchemyClient.core.getLogs({
+      address: '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC',
+      topics: ['0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31'],
+      fromBlock: lastProcessedBlock + 1,
+      toBlock: 'latest',
+    });
+
+    cancelledOrders = await alchemyClient.core.getLogs({
+      address: '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC',
+      topics: ['0x6bacc01dbe442496068f7d234edd811f1a5f833243e0aec824f86ab861f3c90d'],
+      fromBlock: lastProcessedBlock + 1,
+      toBlock: 'latest',
+    });
+  } catch (e) {
+    console.log(e);
+    return;
+  }
 
   console.info(
     `[${new Date().toJSON()}] Found ${fulfilledOrders.length} new OrderFulfilled events`,
+  );
+
+  console.info(
+    `[${new Date().toJSON()}] Found ${cancelledOrders.length} new OrderCancelled events`,
   );
 
   const activeOrders = await mongoClient
@@ -117,11 +138,35 @@ async function run() {
 
     await mongoClient.db('mongodb').collection('orders').deleteOne({ _id: activeOrder._id });
 
-    console.info(`[${new Date().toJSON()}] Processed order: ${orderHash}🔥`);
+    console.info(`[${new Date().toJSON()}] Processed order: ${orderHash} ✅`);
   }
-  if (fulfilledOrders.length > 0) {
-    const newLastProcessedBlock = fulfilledOrders[fulfilledOrders.length - 1].blockNumber;
-    fs.writeFileSync('src/transferListenerState.txt', newLastProcessedBlock.toString());
+
+  for (const cancelledOrder of cancelledOrders) {
+    const decodedLog = decodeEventLog({
+      abi: seaportABI,
+      data: cancelledOrder.data as `0x${string}`,
+      topics: cancelledOrder.topics as [],
+    });
+
+    const args = decodedLog.args as any as { orderHash: string };
+    const orderHash = args.orderHash;
+    const activeOrder = activeOrders.find((order) => order.orderHash === orderHash);
+
+    if (!activeOrder) continue;
+
+    await mongoClient.db('mongodb').collection('orders').deleteOne({ _id: activeOrder._id });
+
+    console.info(`[${new Date().toJSON()}] Cancelled order: ${orderHash}🔥`);
+  }
+
+  if (fulfilledOrders.length > 0 || cancelledOrders.length > 0) {
+    const lastProcessedOrder = fulfilledOrders[fulfilledOrders.length - 1] as Log | undefined;
+    const lastCancelledOrder = cancelledOrders[cancelledOrders.length - 1] as Log | undefined;
+    const newLastBlock = Math.max(
+      lastProcessedOrder?.blockNumber || 0,
+      lastCancelledOrder?.blockNumber || 0,
+    );
+    fs.writeFileSync('src/eventListenerState.txt', newLastBlock.toString());
   }
   isRunning = false;
 }

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "nodemon src/server.ts",
-    "listen": "nodemon src/transferListener.ts"
+    "listen": "nodemon src/eventListener.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.14",
