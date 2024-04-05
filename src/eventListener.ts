@@ -34,6 +34,7 @@ async function run() {
 
   let fulfilledOrders = [];
   let cancelledOrders = [];
+  let incrementedCounters = [];
 
   try {
     fulfilledOrders = await alchemyClient.core.getLogs({
@@ -49,8 +50,24 @@ async function run() {
       fromBlock: lastProcessedBlock + 1,
       toBlock: 'latest',
     });
+
+    incrementedCounters = await alchemyClient.core.getLogs({
+      address: '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC',
+      topics: ['0x721c20121297512b72821b97f5326877ea8ecf4bb9948fea5bfcb6453074d37f'],
+      fromBlock: lastProcessedBlock + 1,
+      toBlock: 'latest',
+    });
   } catch (e) {
     console.log(e);
+    return;
+  }
+
+  if (
+    fulfilledOrders.length == 0 &&
+    cancelledOrders.length == 0 &&
+    incrementedCounters.length == 0
+  ) {
+    isRunning = false;
     return;
   }
 
@@ -60,6 +77,10 @@ async function run() {
 
   console.info(
     `[${new Date().toJSON()}] Found ${cancelledOrders.length} new OrderCancelled events`,
+  );
+
+  console.info(
+    `[${new Date().toJSON()}] Found ${incrementedCounters.length} new CounterIncremented events`,
   );
 
   const activeOrders = await mongoClient
@@ -159,12 +180,37 @@ async function run() {
     console.info(`[${new Date().toJSON()}] Cancelled order: ${orderHash}🔥`);
   }
 
-  if (fulfilledOrders.length > 0 || cancelledOrders.length > 0) {
+  for (const incrementedCounter of incrementedCounters) {
+    const decodedLog = decodeEventLog({
+      abi: seaportABI,
+      data: incrementedCounter.data as `0x${string}`,
+      topics: incrementedCounter.topics as [],
+    });
+
+    const args = decodedLog.args as any as { offerer: string };
+    const offerer = args.offerer;
+    const offererActiveOrders = activeOrders.filter((order) => order.offerer === offerer);
+
+    if (offererActiveOrders.length == 0) continue;
+
+    await mongoClient.db('mongodb').collection('orders').deleteMany({ offerer });
+
+    for (const offererActiveOrder of offererActiveOrders) {
+      console.info(`[${new Date().toJSON()}] Cancelled order: ${offererActiveOrder.orderHash}🔥`);
+    }
+  }
+
+  if (fulfilledOrders.length > 0 || cancelledOrders.length > 0 || incrementedCounters.length > 0) {
     const lastProcessedOrder = fulfilledOrders[fulfilledOrders.length - 1] as Log | undefined;
     const lastCancelledOrder = cancelledOrders[cancelledOrders.length - 1] as Log | undefined;
+    const lastIncrementedCounter = incrementedCounters[incrementedCounters.length - 1] as
+      | Log
+      | undefined;
+
     const newLastBlock = Math.max(
       lastProcessedOrder?.blockNumber || 0,
       lastCancelledOrder?.blockNumber || 0,
+      lastIncrementedCounter?.blockNumber || 0,
     );
     fs.writeFileSync('src/eventListenerState.txt', newLastBlock.toString());
   }

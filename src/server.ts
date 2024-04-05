@@ -212,7 +212,7 @@ app.post('/orders/create/', async (req, res, next) => {
 
 app.post('/orders/list/:collection', async (req, res, next) => {
   try {
-    const { tokenIds }: { tokenIds?: string[] } = req.body;
+    const { tokenIds, offerer }: { tokenIds?: string[]; offerer?: string } = req.body;
     const { collection } = req.params;
     const { address: contractAddress } = supportedCollections[collection] || {};
 
@@ -228,11 +228,23 @@ app.post('/orders/list/:collection', async (req, res, next) => {
       return;
     }
 
+    if (offerer && !isValidAddress(offerer)) {
+      res.status(400).json({ error: 'invalid `offerer` field' });
+      next();
+      return;
+    }
+
     let tokenQuery = { token: contractAddress };
-    let query: {} = tokenQuery;
+    let query: { $and: any[] } = { $and: [tokenQuery] };
+
+    if (!!offerer) {
+      let offererQuery = { offerer: offerer };
+      query.$and.push(offererQuery);
+    }
 
     if (!!tokenIds) {
-      query = { $and: [tokenQuery, { tokenId: { $in: tokenIds } }] };
+      let tokenIdQuery = { tokenId: { $in: tokenIds } };
+      query.$and.push(tokenIdQuery);
     }
 
     const orders = await client.db('mongodb').collection('orders').find(query).toArray();
