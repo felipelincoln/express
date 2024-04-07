@@ -59,6 +59,7 @@ async function run() {
     });
   } catch (e) {
     console.log(e);
+    isRunning = false;
     return;
   }
 
