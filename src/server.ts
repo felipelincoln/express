@@ -244,9 +244,10 @@ app.post('/orders/list/:collection', async (req, res, next) => {
       return;
     }
 
-    let isActiveQuery = { isActive: { $ne: false } };
+    let allowed = { allowed: { $ne: false } };
+    let transferred = { transferred: { $ne: true } };
     let tokenQuery = { token: contractAddress };
-    let query: { $and: any[] } = { $and: [tokenQuery, isActiveQuery] };
+    let query: { $and: any[] } = { $and: [tokenQuery, allowed, transferred] };
 
     if (!!offerer) {
       let offererQuery = { offerer: offerer };
@@ -433,9 +434,13 @@ async function migrate() {
             bsonType: 'string',
             description: "'orderHash' is required (string)",
           },
-          isActive: {
+          transferred: {
             bsonType: 'bool',
-            description: "'isActive' is optional (bool)",
+            description: "'transferred' is optional (bool)",
+          },
+          allowed: {
+            bsonType: 'bool',
+            description: "'allowed' is optional (bool)",
           },
           fulfillmentCriteria: {
             bsonType: 'object',
