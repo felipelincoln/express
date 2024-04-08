@@ -12,6 +12,7 @@
     "alchemy-sdk": "^2.10.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "moment": "^2.30.1",
     "mongodb": "^6.1.0",
     "viem": "^2.4.0",
     "winston": "^3.13.0"

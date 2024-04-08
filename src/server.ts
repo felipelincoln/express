@@ -7,6 +7,7 @@ import { isValidAddress, isValidObject, isValidString, isValidTokenIds } from '.
 import { EthereumNetwork, config } from './config';
 import winston from 'winston';
 import { MethodNotFoundRpcError } from 'viem';
+import moment from 'moment';
 
 const logger = winston.createLogger({
   format: winston.format.combine(
@@ -189,6 +190,15 @@ app.post('/orders/create/', async (req, res, next) => {
       return;
     }
 
+    const query = { token: order.token, tokenId: order.tokenId };
+    const existingOrder = await client.db('mongodb').collection<Order>('orders').findOne(query);
+    if (existingOrder) {
+      const hasExpired = moment.unix(Number(existingOrder.endTime)).isBefore(moment());
+      if (hasExpired) {
+        await client.db('mongodb').collection('orders').deleteOne({ _id: existingOrder._id });
+      }
+    }
+
     await client
       .db('mongodb')
       .collection('orders')
@@ -234,8 +244,9 @@ app.post('/orders/list/:collection', async (req, res, next) => {
       return;
     }
 
+    let isActiveQuery = { isActive: { $ne: false } };
     let tokenQuery = { token: contractAddress };
-    let query: { $and: any[] } = { $and: [tokenQuery] };
+    let query: { $and: any[] } = { $and: [tokenQuery, isActiveQuery] };
 
     if (!!offerer) {
       let offererQuery = { offerer: offerer };
@@ -247,9 +258,13 @@ app.post('/orders/list/:collection', async (req, res, next) => {
       query.$and.push(tokenIdQuery);
     }
 
-    const orders = await client.db('mongodb').collection('orders').find(query).toArray();
+    const orders = await client.db('mongodb').collection<Order>('orders').find(query).toArray();
+    const notExpiredOrders = orders.filter((order) => {
+      const endTime = moment.unix(Number(order.endTime));
+      return endTime.isAfter(moment());
+    });
 
-    res.status(200).json({ data: { orders } });
+    res.status(200).json({ data: { orders: notExpiredOrders } });
     next();
   } catch (err) {
     next(err);
@@ -372,10 +387,11 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
+  //await migrate();
   logger.info('Server started');
 });
 
-/*
+async function migrate() {
   await client.db('mongodb').createCollection('orders', {
     validator: {
       $jsonSchema: {
@@ -416,6 +432,10 @@ app.listen(3000, async () => {
           orderHash: {
             bsonType: 'string',
             description: "'orderHash' is required (string)",
+          },
+          isActive: {
+            bsonType: 'bool',
+            description: "'isActive' is optional (bool)",
           },
           fulfillmentCriteria: {
             bsonType: 'object',
@@ -581,4 +601,4 @@ app.listen(3000, async () => {
     .db('mongodb')
     .collection('notification')
     .createIndex({ activityId: 1 }, { unique: true });
-*/
+}
