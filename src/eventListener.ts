@@ -294,6 +294,8 @@ async function processSetApprovalForAll(
   approvalForAll: Log,
   { orders }: { orders: WithId<WithSignature<WithOrderHash<Order>>>[] },
 ) {
+  if (approvalForAll.topics.length != 3) return;
+
   const decodedLog = decodeEventLog({
     abi: erc721ABI,
     data: approvalForAll.data as `0x${string}`,
