@@ -199,10 +199,7 @@ app.post('/orders/create/', async (req, res, next) => {
       }
     }
 
-    await client
-      .db('mongodb')
-      .collection('orders')
-      .insertOne({ ...order });
+    await client.db('mongodb').collection('orders').insertOne(order);
 
     res.status(200).json({ data: 'Order created' });
     next();
@@ -406,6 +403,7 @@ async function migrate() {
           'endTime',
           'signature',
           'orderHash',
+          'salt',
           'fulfillmentCriteria',
         ],
         properties: {
@@ -434,6 +432,10 @@ async function migrate() {
             bsonType: 'string',
             description: "'orderHash' is required (string)",
           },
+          salt: {
+            bsonType: 'string',
+            description: "'salt' is required (string)",
+          },
           transferred: {
             bsonType: 'bool',
             description: "'transferred' is optional (bool)",
@@ -441,6 +443,21 @@ async function migrate() {
           allowed: {
             bsonType: 'bool',
             description: "'allowed' is optional (bool)",
+          },
+          fee: {
+            bsonType: 'object',
+            additionalProperties: false,
+            required: ['recipient', 'amount'],
+            properties: {
+              recipient: {
+                bsonType: 'string',
+                description: "'recipient' is required (string)",
+              },
+              amount: {
+                bsonType: 'string',
+                description: "'amount' is required (string)",
+              },
+            },
           },
           fulfillmentCriteria: {
             bsonType: 'object',
@@ -451,7 +468,6 @@ async function migrate() {
               coin: {
                 bsonType: 'object',
                 additionalProperties: false,
-                description: "'coin' is required (object)",
                 required: ['amount'],
                 properties: {
                   amount: {
