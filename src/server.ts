@@ -385,7 +385,7 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
-  //await migrate();
+  await migrate();
   logger.info('Server started');
 });
 
@@ -613,6 +613,64 @@ async function migrate() {
       },
     },
   });
+  await client.db('mongodb').createCollection('collection', {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        additionalProperties: false,
+        required: ['_id', 'contract', 'totalSupply', 'name', 'symbol', 'image', 'attributeSummary'],
+        properties: {
+          _id: { bsonType: 'objectId' },
+          contract: { bsonType: 'string' },
+          totalSupply: { bsonType: 'string' },
+          name: { bsonType: 'string' },
+          symbol: { bsonType: 'string' },
+          image: { bsonType: 'string' },
+          attributeSummary: {
+            bsonType: 'array',
+            items: {
+              bsonType: 'object',
+              required: ['attribute', 'options'],
+              properties: {
+                attribute: { bsonType: 'string' },
+                options: {
+                  bsonType: 'array',
+                  items: { bsonType: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  await client.db('mongodb').createCollection('token', {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        additionalProperties: false,
+        required: ['_id', 'contract', 'tokenId', 'attributes'],
+        properties: {
+          _id: { bsonType: 'objectId' },
+          contract: { bsonType: 'string' },
+          tokenId: { bsonType: 'int' },
+          image: { bsonType: 'string' },
+          rawImage: { bsonType: 'string' },
+          attributes: {
+            bsonType: 'array',
+            items: {
+              bsonType: 'object',
+              required: ['name', 'value'],
+              properties: {
+                name: { bsonType: 'string' },
+                value: { bsonType: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
   await client
     .db('mongodb')
     .collection('orders')
@@ -622,4 +680,13 @@ async function migrate() {
     .db('mongodb')
     .collection('notification')
     .createIndex({ activityId: 1 }, { unique: true });
+  await client
+    .db('mongodb')
+    .collection('collection')
+    .createIndex({ contract: 1 }, { unique: true });
+
+  await client
+    .db('mongodb')
+    .collection('token')
+    .createIndex({ contract: 1, tokenId: 1 }, { unique: true });
 }

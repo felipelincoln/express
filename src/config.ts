@@ -4,5 +4,5 @@ export enum EthereumNetwork {
 }
 
 export const config = {
-  ethereumNetwork: EthereumNetwork.Sepolia,
+  ethereumNetwork: EthereumNetwork.Mainnet,
 };
