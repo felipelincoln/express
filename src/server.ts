@@ -145,7 +145,7 @@ app.get('/collection/:contract', async (req, res, next) => {
       const tokensCount = await client
         .db('mongodb')
         .collection('token')
-        .countDocuments({ contract: collection.contract });
+        .countDocuments({ collection_id: collection._id });
 
       res
         .status(200)
@@ -162,11 +162,14 @@ app.get('/collection/:contract', async (req, res, next) => {
     }
 
     const attributes = await alchemyClient.nft.summarizeNftAttributes(contract);
-    const attributeSummary = [];
+    const attributeSummaryList = [];
 
     for (const [k, v] of Object.entries(attributes.summary)) {
       const options = Object.keys(v);
-      attributeSummary.push({ attribute: k, options });
+      attributeSummaryList.push({
+        attribute: k,
+        options: Object.fromEntries(Object.entries(options)),
+      });
     }
 
     const newCollection = {
@@ -175,7 +178,7 @@ app.get('/collection/:contract', async (req, res, next) => {
       image: metadata.openSeaMetadata?.imageUrl,
       contract,
       totalSupply: metadata.totalSupply,
-      attributeSummary,
+      attributeSummary: Object.fromEntries(Object.entries(attributeSummaryList)),
     };
 
     await client.db('mongodb').collection('collection').insertOne(newCollection);
@@ -450,7 +453,7 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
-  //await migrate();
+  await migrate();
   logger.info('Server started');
 });
 
@@ -691,20 +694,7 @@ async function migrate() {
           name: { bsonType: 'string' },
           symbol: { bsonType: 'string' },
           image: { bsonType: 'string' },
-          attributeSummary: {
-            bsonType: 'array',
-            items: {
-              bsonType: 'object',
-              required: ['attribute', 'options'],
-              properties: {
-                attribute: { bsonType: 'string' },
-                options: {
-                  bsonType: 'array',
-                  items: { bsonType: 'string' },
-                },
-              },
-            },
-          },
+          attributeSummary: { bsonType: 'object' },
         },
       },
     },
@@ -714,24 +704,13 @@ async function migrate() {
       $jsonSchema: {
         bsonType: 'object',
         additionalProperties: false,
-        required: ['_id', 'contract', 'tokenId', 'attributes'],
+        required: ['_id', 'collection_id', 'tokenId', 'attributes'],
         properties: {
           _id: { bsonType: 'objectId' },
-          contract: { bsonType: 'string' },
+          collection_id: { bsonType: 'objectId' },
           tokenId: { bsonType: 'int' },
           image: { bsonType: 'string' },
-          rawImage: { bsonType: 'string' },
-          attributes: {
-            bsonType: 'array',
-            items: {
-              bsonType: 'object',
-              required: ['name', 'value'],
-              properties: {
-                name: { bsonType: 'string' },
-                value: { bsonType: 'string' },
-              },
-            },
-          },
+          attributes: { bsonType: 'object' },
         },
       },
     },
@@ -753,5 +732,5 @@ async function migrate() {
   await client
     .db('mongodb')
     .collection('token')
-    .createIndex({ contract: 1, tokenId: 1 }, { unique: true });
+    .createIndex({ collection_id: 1, tokenId: 1 }, { unique: true });
 }

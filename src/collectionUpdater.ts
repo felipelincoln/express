@@ -1,5 +1,5 @@
 import { alchemyClient } from './alchemy';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const mongoDbUri =
   'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
@@ -12,15 +12,14 @@ interface Collection {
   image?: string;
   contract: string;
   totalSupply: string;
-  attributeSummary: { attribute: string; options: string[] }[];
+  attributeSummary: Record<string, { attribute: string; options: Record<string, string> }>;
 }
 
 interface Token {
-  contract: string;
+  collection_id: ObjectId;
   tokenId: number;
   image?: string;
-  rawImage?: string;
-  attributes: string[];
+  attributes: Record<string, string>;
 }
 
 let isRunning = false;
@@ -39,7 +38,7 @@ async function run() {
     const tokensCount = await client
       .db('mongodb')
       .collection<Token>('token')
-      .countDocuments({ contract: collection.contract });
+      .countDocuments({ collection_id: collection._id });
 
     if (totalSupply == tokensCount) {
       continue;
@@ -53,6 +52,16 @@ async function run() {
 
     console.log(`${collection.name}: [${tokensCount} / ${totalSupply}] - processing ⌛`);
 
+    const reverseAttributeSummary = Object.fromEntries(
+      Object.entries(collection.attributeSummary).map((x) => [
+        x[1].attribute,
+        {
+          attribute: x[0],
+          options: Object.fromEntries(Object.entries(x[1].options).map((y) => [y[1], y[0]])),
+        },
+      ]),
+    );
+
     let newTokensBatch = [];
     let newTokensCount = 0;
     try {
@@ -60,21 +69,20 @@ async function run() {
         tokenUriTimeoutInMs: 0,
         pageKey: lastTokenId ? (lastTokenId + 1).toString() : undefined,
       });
-      for await (const token of tokens) {
-        const rawAttributes = token.raw.metadata.attributes;
-        const a = collection.attributeSummary.map((entry, index) => [entry.attribute, index]);
 
-        const attributes = token.raw.metadata.attributes.map(
-          (attr: { trait_type: string; value: string }) => {
-            collection.attributeSummary;
-            return { name: attr.trait_type, value: attr.value };
-          },
-        );
+      for await (const token of tokens) {
+        const attributes: Record<string, string> = {};
+
+        token.raw.metadata.attributes.forEach((attr: { trait_type: string; value: string }) => {
+          const { attribute, options } = reverseAttributeSummary[attr.trait_type];
+          const attributeValue = options[attr.value];
+
+          attributes[attribute] = attributeValue;
+        });
 
         const newToken: Token = {
-          contract: collection.contract,
+          collection_id: collection._id,
           tokenId: Number(token.tokenId),
-          rawImage: token.image.originalUrl,
           attributes,
         };
 
