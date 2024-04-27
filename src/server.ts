@@ -66,12 +66,19 @@ export interface Order {
 }
 
 interface Collection {
-  name?: string;
-  symbol?: string;
-  image?: string;
+  name: string;
+  symbol: string;
+  image: string;
   contract: string;
   totalSupply: string;
-  attributeSummary: { attribute: string; options: string[] }[];
+  attributeSummary: Record<string, { attribute: string; options: Record<string, string> }>;
+}
+
+interface Token {
+  collection_id: ObjectId;
+  tokenId: number;
+  image?: string;
+  attributes: Record<string, string>;
 }
 
 const app = express();
@@ -104,19 +111,23 @@ app.post('/jsonrpc', async (req, res, next) => {
   }
 });
 
-app.get('/eth/tokens/:collection/:userAddress', async (req, res, next) => {
+app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
   try {
-    const { collection, userAddress } = req.params;
-    const { address: contractAddress } = supportedCollections[collection] || {};
+    const { contract, userAddress } = req.params;
 
-    if (!contractAddress) {
-      res.status(400).json({ error: 'Collection not supported' });
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (!collection) {
+      res.status(400).json({ error: 'collection not supported' });
       next();
       return;
     }
 
     const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
-      contractAddresses: [contractAddress],
+      contractAddresses: [contract],
       omitMetadata: true,
     });
 
@@ -190,13 +201,13 @@ app.get('/collection/:contract', async (req, res, next) => {
   }
 });
 
-app.post('/tokens/:collection', async (req, res, next) => {
+app.post('/tokens/:contract', async (req, res, next) => {
   try {
-    const { collection: collectionRequest } = req.params;
+    const { contract } = req.params;
     const {
       tokenIds: tokenIdsRequest,
       filters,
-    }: { tokenIds: string[]; filters: { [attribute: string]: string } } = req.body;
+    }: { tokenIds: string[]; filters: Record<string, string> } = req.body;
 
     if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
@@ -222,24 +233,27 @@ app.post('/tokens/:collection', async (req, res, next) => {
       return;
     }
 
-    const collection = supportedCollections[collectionRequest];
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
     if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
       next();
       return;
     }
 
-    const tokenIds = tokenIdsRequest || collection.mintedTokens;
-    const filteredTokenIds = tokenIds.filter((tokenId: string) => {
-      const metadata = collection.metadata[tokenId];
-
-      for (const [attribute, value] of Object.entries(filters)) {
-        if (metadata[attribute] != value) {
-          return false;
-        }
-      }
-      return true;
+    Object.keys(filters).forEach((key) => {
+      filters['attributes.' + key] = filters[key];
+      delete filters[key];
     });
+
+    const filteredTokenIds = await client
+      .db('mongodb')
+      .collection<Token>('token')
+      .find({ collection_id: collection._id, ...filters }, { sort: { tokenId: 1 } })
+      .toArray();
 
     res.status(200).json({ data: { tokens: filteredTokenIds } });
     next();
@@ -285,14 +299,18 @@ app.post('/orders/create/', async (req, res, next) => {
   }
 });
 
-app.post('/orders/list/:collection', async (req, res, next) => {
+app.post('/orders/list/:contract', async (req, res, next) => {
   try {
     const { tokenIds, offerer }: { tokenIds?: string[]; offerer?: string } = req.body;
-    const { collection } = req.params;
-    const { address: contractAddress } = supportedCollections[collection] || {};
+    const { contract } = req.params;
 
-    if (!contractAddress) {
-      res.status(400).json({ error: 'Collection not supported' });
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (!collection) {
+      res.status(400).json({ error: 'collection not supported' });
       next();
       return;
     }
@@ -311,7 +329,7 @@ app.post('/orders/list/:collection', async (req, res, next) => {
 
     let allowed = { allowed: { $ne: false } };
     let transferred = { transferred: { $ne: true } };
-    let tokenQuery = { token: contractAddress };
+    let tokenQuery = { token: contract };
     let query: { $and: any[] } = { $and: [tokenQuery, allowed, transferred] };
 
     if (!!offerer) {
@@ -337,14 +355,18 @@ app.post('/orders/list/:collection', async (req, res, next) => {
   }
 });
 
-app.post('/activities/list/:collection', async (req, res, next) => {
+app.post('/activities/list/:contract', async (req, res, next) => {
   try {
     const { address, tokenIds }: { address?: string; tokenIds?: string[] } = req.body;
-    const { collection } = req.params;
-    const { address: contractAddress } = supportedCollections[collection] || {};
+    const { contract } = req.params;
 
-    if (!contractAddress) {
-      res.status(400).json({ error: 'Collection not supported' });
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (!collection) {
+      res.status(400).json({ error: 'collection not supported' });
       next();
       return;
     }
@@ -361,7 +383,7 @@ app.post('/activities/list/:collection', async (req, res, next) => {
       return;
     }
 
-    let tokenQuery = { token: contractAddress };
+    let tokenQuery = { token: contract };
     let query: { $and: any[] } = { $and: [tokenQuery] };
 
     if (!!address) {
@@ -386,12 +408,16 @@ app.post('/activities/list/:collection', async (req, res, next) => {
 });
 
 // TODO: add collection + chain on notifications table
-app.get('/notifications/list/:collection/:userAddress', async (req, res, next) => {
+app.get('/notifications/list/:contract/:userAddress', async (req, res, next) => {
   try {
-    const { collection, userAddress } = req.params;
-    const { address: contractAddress } = supportedCollections[collection] || {};
+    const { contract, userAddress } = req.params;
 
-    if (!contractAddress) {
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
       next();
       return;

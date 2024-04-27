@@ -22,8 +22,12 @@ export function isValidString(string: any): boolean {
   return typeof string === 'string';
 }
 
+export function isValidNumber(number: any): boolean {
+  return typeof number === 'number';
+}
+
 export function isValidTokenId(tokenId: any): boolean {
-  return isValidString(tokenId);
+  return isValidNumber(tokenId);
 }
 
 export function isValidOrderId(orderId: any): boolean {
