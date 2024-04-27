@@ -81,6 +81,11 @@ interface Token {
   attributes: Record<string, string>;
 }
 
+interface TokenIdWithImage {
+  tokenId: number;
+  image?: string;
+}
+
 const app = express();
 
 app.use(express.json());
@@ -131,10 +136,16 @@ app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
       omitMetadata: true,
     });
 
-    let tokens: string[] = [];
-    for await (const value of nfts) {
-      tokens.push(value.tokenId);
+    let tokenIds: number[] = [];
+    for await (const { tokenId } of nfts) {
+      tokenIds.push(Number(tokenId));
     }
+
+    const tokens = await client
+      .db('mongodb')
+      .collection<Token>('token')
+      .find({ collection_id: collection._id, tokenId: { $in: tokenIds } })
+      .toArray();
 
     res.status(200).json({ data: { tokens } });
     next();
