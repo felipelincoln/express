@@ -3,7 +3,13 @@ import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
 import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
 import { supportedCollections } from './collections';
-import { isValidAddress, isValidObject, isValidString, isValidTokenIds } from './queryValidator';
+import {
+  isValidAddress,
+  isValidNumber,
+  isValidObject,
+  isValidString,
+  isValidTokenIds,
+} from './queryValidator';
 import { EthereumNetwork, config } from './config';
 import winston from 'winston';
 import { MethodNotFoundRpcError } from 'viem';
@@ -218,10 +224,23 @@ app.post('/tokens/:contract', async (req, res, next) => {
     const {
       tokenIds: tokenIdsRequest,
       filters,
-    }: { tokenIds: string[]; filters: Record<string, string> } = req.body;
+      limit,
+      skip,
+    }: {
+      tokenIds: string[];
+      filters: Record<string, string>;
+      limit?: number;
+      skip?: number;
+    } = req.body;
 
     if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
+      next();
+      return;
+    }
+
+    if (limit && !isValidNumber(limit)) {
+      res.status(400).json({ error: 'invalid `limit` field' });
       next();
       return;
     }
@@ -263,10 +282,15 @@ app.post('/tokens/:contract', async (req, res, next) => {
     const filteredTokenIds = await client
       .db('mongodb')
       .collection<Token>('token')
-      .find({ collection_id: collection._id, ...filters }, { sort: { tokenId: 1 } })
+      .find({ collection_id: collection._id, ...filters }, { sort: { tokenId: 1 }, limit, skip })
       .toArray();
 
-    res.status(200).json({ data: { tokens: filteredTokenIds } });
+    const count = await client
+      .db('mongodb')
+      .collection<Token>('token')
+      .countDocuments({ collection_id: collection._id, ...filters });
+
+    res.status(200).json({ data: { tokens: filteredTokenIds, limit, skip, count } });
     next();
   } catch (err) {
     next(err);
