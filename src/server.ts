@@ -373,7 +373,7 @@ app.post('/orders/list/:contract', async (req, res, next) => {
     }
 
     if (!!tokenIds) {
-      let tokenIdQuery = { tokenId: { $in: tokenIds } };
+      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } }; // TODO: workaraound
       query.$and.push(tokenIdQuery);
     }
 
