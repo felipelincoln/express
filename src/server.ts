@@ -8,6 +8,7 @@ import { EthereumNetwork, config } from './config';
 import winston from 'winston';
 import { MethodNotFoundRpcError } from 'viem';
 import moment from 'moment';
+import { alchemyClient } from './alchemy';
 
 const logger = winston.createLogger({
   format: winston.format.combine(
@@ -64,6 +65,15 @@ export interface Order {
   endTime: string;
 }
 
+interface Collection {
+  name?: string;
+  symbol?: string;
+  image?: string;
+  contract: string;
+  totalSupply: string;
+  attributeSummary: { attribute: string; options: string[] }[];
+}
+
 const app = express();
 
 app.use(express.json());
@@ -116,6 +126,61 @@ app.get('/eth/tokens/:collection/:userAddress', async (req, res, next) => {
     }
 
     res.status(200).json({ data: { tokens } });
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/collection/:contract', async (req, res, next) => {
+  const { contract } = req.params;
+
+  try {
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (collection) {
+      const tokensCount = await client
+        .db('mongodb')
+        .collection('token')
+        .countDocuments({ contract: collection.contract });
+
+      res
+        .status(200)
+        .json({ data: { collection, isReady: tokensCount == Number(collection.totalSupply) } });
+      next();
+      return;
+    }
+
+    const metadata = await alchemyClient.nft.getContractMetadata(contract);
+    if (metadata.tokenType != 'ERC721') {
+      res.status(400).json({ error: 'only ERC721 tokens are supported' });
+      next();
+      return;
+    }
+
+    const attributes = await alchemyClient.nft.summarizeNftAttributes(contract);
+    const attributeSummary = [];
+
+    for (const [k, v] of Object.entries(attributes.summary)) {
+      const options = Object.keys(v);
+      attributeSummary.push({ attribute: k, options });
+    }
+
+    const newCollection = {
+      name: metadata.name,
+      symbol: metadata.symbol,
+      image: metadata.openSeaMetadata?.imageUrl,
+      contract,
+      totalSupply: metadata.totalSupply,
+      attributeSummary,
+    };
+
+    await client.db('mongodb').collection('collection').insertOne(newCollection);
+
+    res.status(200).json({ data: { collection: newCollection, isReady: false } });
     next();
   } catch (err) {
     next(err);
@@ -385,7 +450,7 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
-  await migrate();
+  //await migrate();
   logger.info('Server started');
 });
 

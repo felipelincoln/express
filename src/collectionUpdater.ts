@@ -1,12 +1,5 @@
 import { alchemyClient } from './alchemy';
-import fs from 'fs';
-import { mongoClient } from './mongodb';
-import { Order, WithOrderHash, WithSignature } from './server';
-import { StopImpersonatingAccountParameters, decodeEventLog } from 'viem';
-import seaportABI from './seaport.abi.json';
-import erc721ABI from './erc721.abi.json';
-import { Log } from 'alchemy-sdk/dist/src/types/types';
-import { MongoClient, OrderedBulkOperation, WithId } from 'mongodb';
+import { MongoClient } from 'mongodb';
 
 const mongoDbUri =
   'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
@@ -27,7 +20,7 @@ interface Token {
   tokenId: number;
   image?: string;
   rawImage?: string;
-  attributes: { name: string; value: string[] }[];
+  attributes: string[];
 }
 
 let isRunning = false;
@@ -52,21 +45,28 @@ async function run() {
       continue;
     }
 
-    if (totalSupply != tokensCount) {
-      console.log(
-        `${collection.contract}: [${tokensCount} != ${totalSupply}] - Action: deleted tokens ❌`,
-      );
-      await client.db('mongodb').collection('token').deleteMany({ contract: collection.contract });
-    }
+    const lastToken = await client
+      .db('mongodb')
+      .collection<Token>('token')
+      .findOne({ contract: collection.contract }, { sort: { tokenId: -1 } });
+    const lastTokenId = lastToken?.tokenId;
 
-    console.log(`${collection.contract}: [0 / ${totalSupply}] - Action: Processing ⌛`);
+    console.log(`${collection.name}: [${tokensCount} / ${totalSupply}] - processing ⌛`);
 
+    let newTokensBatch = [];
+    let newTokensCount = 0;
     try {
-      const inserts = [];
-      const tokens = alchemyClient.nft.getNftsForContractIterator(collection.contract);
+      const tokens = alchemyClient.nft.getNftsForContractIterator(collection.contract, {
+        tokenUriTimeoutInMs: 0,
+        pageKey: lastTokenId ? (lastTokenId + 1).toString() : undefined,
+      });
       for await (const token of tokens) {
+        const rawAttributes = token.raw.metadata.attributes;
+        const a = collection.attributeSummary.map((entry, index) => [entry.attribute, index]);
+
         const attributes = token.raw.metadata.attributes.map(
           (attr: { trait_type: string; value: string }) => {
+            collection.attributeSummary;
             return { name: attr.trait_type, value: attr.value };
           },
         );
@@ -83,57 +83,43 @@ async function run() {
           newToken.image = alchemyImage;
         }
 
-        inserts.push(client.db('mongodb').collection('token').insertOne(newToken));
+        newTokensBatch.push(newToken);
+        newTokensCount++;
 
-        if (Number(token.tokenId) % 1000 == 0) {
+        if (newTokensBatch.length >= 100) {
+          await client.db('mongodb').collection('token').insertMany(newTokensBatch);
+          newTokensBatch = [];
           console.log(
-            `${collection.contract}: [${token.tokenId} / ${totalSupply}] - Action: Processing ⌛`,
+            `${collection.name}: [${
+              tokensCount + newTokensCount
+            } / ${totalSupply}] - processing ⌛`,
           );
         }
       }
 
-      console.log(
-        `${collection.contract}: [${totalSupply} / ${totalSupply}] - Action: Processing ⌛`,
-      );
-      await Promise.all(inserts);
+      if (newTokensBatch.length > 0) {
+        await client.db('mongodb').collection('token').insertMany(newTokensBatch);
+        newTokensBatch = [];
+        console.log(
+          `${collection.name}: [${tokensCount + newTokensCount} / ${totalSupply}] - processing ⌛`,
+        );
+      }
     } catch (e) {
-      console.log(e);
+      if (newTokensBatch.length > 0) {
+        await client.db('mongodb').collection('token').insertMany(newTokensBatch);
+      }
+      console.log(
+        `${collection.name}: [${tokensCount + newTokensCount} / ${totalSupply}] - failed ⚠️`,
+      );
+      continue;
     }
   }
 
   isRunning = false;
-
-  /*
-  const contract = '0x1ddb32a082c369834b57473dd3a5146870ecf8b7';
-  const metadata = await alchemyClient.nft.getContractMetadata(contract);
-  if (metadata.tokenType != 'ERC721') {
-    isRunning = false;
-    return;
-  }
-
-  const attributes = await alchemyClient.nft.summarizeNftAttributes(contract);
-  const attributeSummary = [];
-
-  for (const [k, v] of Object.entries(attributes.summary)) {
-    const options = Object.keys(v);
-    attributeSummary.push({ attribute: k, options });
-  }
-
-  const newCollection: Collection = {
-    name: metadata.name,
-    symbol: metadata.symbol,
-    image: metadata.openSeaMetadata?.imageUrl,
-    contract,
-    totalSupply: attributes.totalSupply,
-    attributeSummary,
-  };
-
-  await client.db('mongodb').collection('collection').insertOne(newCollection);
-  */
 }
 
 setInterval(async () => {
   if (isRunning) return;
 
   await run();
-}, 1_000);
+}, 10_000);
