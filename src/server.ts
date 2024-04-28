@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
-import { Db, MongoClient, ObjectId, WithId } from 'mongodb';
+import { Db, MongoClient, ObjectId, ServerMonitoringMode, WithId } from 'mongodb';
 import { supportedCollections } from './collections';
 import {
   isValidAddress,
@@ -279,16 +279,19 @@ app.post('/tokens/:contract', async (req, res, next) => {
       delete filters[key];
     });
 
+    const query: Record<string, any> = { collection_id: collection._id, ...filters };
+
+    if (!!tokenIdsRequest) {
+      query.tokenId = { $in: tokenIdsRequest };
+    }
+
     const filteredTokenIds = await client
       .db('mongodb')
       .collection<Token>('token')
-      .find({ collection_id: collection._id, ...filters }, { sort: { tokenId: 1 }, limit, skip })
+      .find(query, { sort: { tokenId: 1 }, limit, skip })
       .toArray();
 
-    const count = await client
-      .db('mongodb')
-      .collection<Token>('token')
-      .countDocuments({ collection_id: collection._id, ...filters });
+    const count = await client.db('mongodb').collection<Token>('token').countDocuments(query);
 
     res.status(200).json({ data: { tokens: filteredTokenIds, limit, skip, count } });
     next();
@@ -365,7 +368,7 @@ app.post('/orders/list/:contract', async (req, res, next) => {
     let allowed = { allowed: { $ne: false } };
     let transferred = { transferred: { $ne: true } };
     let tokenQuery = { token: contract };
-    let query: { $and: any[] } = { $and: [tokenQuery, allowed, transferred] };
+    let query: { $and: any[] } = { $and: [tokenQuery, allowed, transferred] }; // TODO: and is not needed!
 
     if (!!offerer) {
       let offererQuery = { offerer: offerer };
@@ -373,7 +376,7 @@ app.post('/orders/list/:contract', async (req, res, next) => {
     }
 
     if (!!tokenIds) {
-      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } }; // TODO: workaraound
+      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } }; // TODO: toString is a workaround
       query.$and.push(tokenIdQuery);
     }
 
@@ -427,7 +430,7 @@ app.post('/activities/list/:contract', async (req, res, next) => {
     }
 
     if (!!tokenIds) {
-      let tokenIdQuery = { tokenId: { $in: tokenIds } };
+      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } };
       query.$and.push(tokenIdQuery);
     }
 
