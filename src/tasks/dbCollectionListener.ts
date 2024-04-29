@@ -1,56 +1,32 @@
-import { alchemyClient } from './alchemy';
-import { MongoClient, ObjectId } from 'mongodb';
+import { DbCollection, DbToken, db } from '../db';
+import { alchemyClient } from '../eth';
+import { createLogger } from '../log';
 
-const mongoDbUri = 'mongodb://localhost:27017';
-//'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
-
-const client = new MongoClient(mongoDbUri);
-
-interface Collection {
-  name?: string;
-  symbol?: string;
-  image?: string;
-  contract: string;
-  totalSupply: string;
-  attributeSummary: Record<string, { attribute: string; options: Record<string, string> }>;
-}
-
-interface Token {
-  collection_id: ObjectId;
-  tokenId: number;
-  image?: string;
-  attributes: Record<string, string>;
-}
-
+const logger = createLogger('log/dbCollectionListener.log');
+logger.info('task started');
 let isRunning = false;
+
 async function run() {
-  console.log('searching for new contracts to process...');
   isRunning = true;
 
-  const collections = await client
-    .db('mongodb')
-    .collection<Collection>('collection')
-    .find()
-    .toArray();
+  const collections = await db.collection<DbCollection>('collection').find().toArray();
 
   for (const collection of collections) {
-    const totalSupply = Number(collection.totalSupply);
-    const tokensCount = await client
-      .db('mongodb')
-      .collection<Token>('token')
-      .countDocuments({ collection_id: collection._id });
+    const totalSupply = collection.totalSupply;
+    const tokensCount = await db
+      .collection<DbToken>('token')
+      .countDocuments({ contract: collection.contract });
 
     if (totalSupply == tokensCount) {
       continue;
     }
 
-    const lastToken = await client
-      .db('mongodb')
-      .collection<Token>('token')
+    const lastToken = await db
+      .collection<DbToken>('token')
       .findOne({ contract: collection.contract }, { sort: { tokenId: -1 } });
     const lastTokenId = lastToken?.tokenId;
 
-    console.log(`${collection.name}: [${tokensCount} / ${totalSupply}] - processing ⌛`);
+    logger.info(`[${collection.name}] processing (${tokensCount} / ${totalSupply}) ⌛`);
 
     const reverseAttributeSummary = Object.fromEntries(
       Object.entries(collection.attributeSummary).map((x) => [
@@ -80,8 +56,8 @@ async function run() {
           attributes[attribute] = attributeValue;
         });
 
-        const newToken: Token = {
-          collection_id: collection._id,
+        const newToken: DbToken = {
+          contract: collection.contract,
           tokenId: Number(token.tokenId),
           attributes,
         };
@@ -95,30 +71,27 @@ async function run() {
         newTokensCount++;
 
         if (newTokensBatch.length >= 100) {
-          await client.db('mongodb').collection('token').insertMany(newTokensBatch);
+          await db.collection('token').insertMany(newTokensBatch);
           newTokensBatch = [];
-          console.log(
-            `${collection.name}: [${
-              tokensCount + newTokensCount
-            } / ${totalSupply}] - processing ⌛`,
+          logger.info(
+            `[${collection.name}] processing (${tokensCount + newTokensCount} / ${totalSupply}) ⌛`,
           );
         }
       }
 
       if (newTokensBatch.length > 0) {
-        await client.db('mongodb').collection('token').insertMany(newTokensBatch);
-        newTokensBatch = [];
-        console.log(
-          `${collection.name}: [${tokensCount + newTokensCount} / ${totalSupply}] - processing ⌛`,
+        await db.collection('token').insertMany(newTokensBatch);
+        logger.info(
+          `[${collection.name}] processing (${tokensCount + newTokensCount} / ${totalSupply}) ⌛`,
         );
       }
+
+      logger.info(`[${collection.name}] finished ✅`);
     } catch (e) {
       if (newTokensBatch.length > 0) {
-        await client.db('mongodb').collection('token').insertMany(newTokensBatch);
+        await db.collection('token').insertMany(newTokensBatch);
       }
-      console.log(
-        `${collection.name}: [${tokensCount + newTokensCount} / ${totalSupply}] - failed ⚠️`,
-      );
+      logger.warn(`[${collection.name}] failed (${tokensCount + newTokensCount}) ⚠️`);
       continue;
     }
   }
@@ -129,5 +102,9 @@ async function run() {
 setInterval(async () => {
   if (isRunning) return;
 
-  await run();
+  try {
+    await run();
+  } catch (e: any) {
+    logger.error('task failed. retrying', { context: e });
+  }
 }, 10_000);

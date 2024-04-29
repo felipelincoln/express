@@ -49,7 +49,7 @@ export interface DbCollection {
   symbol: string;
   image: string;
   contract: LowerCaseAddress;
-  totalSupply: string;
+  totalSupply: number;
   attributeSummary: Record<string, { attribute: number; options: Record<number, string> }>;
 }
 

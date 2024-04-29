@@ -142,7 +142,7 @@ const collection = {
       properties: {
         _id: { bsonType: 'objectId' },
         contract: { bsonType: 'string' },
-        totalSupply: { bsonType: 'string' },
+        totalSupply: { bsonType: 'int' },
         name: { bsonType: 'string' },
         symbol: { bsonType: 'string' },
         image: { bsonType: 'string' },

@@ -1,8 +1,6 @@
 import winston from 'winston';
 
 // export const logApi = logger('log/api.log');
-//export const logEventListener = logger('log/eventListener.log');
-//export const logCollectionCreator = logger('log/collectionCreator.log');
 
 export function createLogger(out: string) {
   return winston.createLogger({

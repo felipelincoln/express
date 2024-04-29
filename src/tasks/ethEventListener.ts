@@ -14,7 +14,8 @@ const INCREMENTED_COUNTER = '0x721c20121297512b72821b97f5326877ea8ecf4bb9948fea5
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const APPROVAL_FOR_ALL = '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31';
 
-const logger = createLogger('log/eventListener.log');
+const logger = createLogger('log/ethEventListener.log');
+logger.info('task started');
 const stateFile = 'log/eventListenerState.txt';
 const blocksRange = 100;
 const taskInterval = 12_000;
@@ -87,7 +88,11 @@ async function run() {
 setInterval(async () => {
   if (isRunning) return;
 
-  await run();
+  try {
+    await run();
+  } catch (e: any) {
+    logger.error('task failed. retrying', { context: e });
+  }
 }, taskInterval);
 
 async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder>[]) {
@@ -172,7 +177,7 @@ async function processIncrementedCounter(incrementedCounter: Log, orders: WithId
   });
 
   const args = decodedLog.args as any as { offerer: string };
-  const offerer = args.offerer.toLowerCase();
+  const offerer = lowerCaseAddress(args.offerer);
   const offererActiveOrders = orders.filter((order) => order.offerer === offerer);
 
   if (offererActiveOrders.length == 0) return;
