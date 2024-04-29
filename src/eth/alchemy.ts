@@ -1,5 +1,5 @@
 import { Alchemy, Network } from 'alchemy-sdk';
-import { EthereumNetwork, config } from './config';
+import { EthereumNetwork, config } from '../config';
 
 const alchemyNetwork = (() => {
   switch (config.ethereumNetwork) {
@@ -13,6 +13,6 @@ const alchemyNetwork = (() => {
 })();
 
 export const alchemyClient = new Alchemy({
-  apiKey: process.env.ALCHEMY_API_KEY,
+  apiKey: config.eth.alchemyApiKey,
   network: alchemyNetwork,
 });

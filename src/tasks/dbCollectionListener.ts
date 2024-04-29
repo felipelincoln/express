@@ -1,8 +1,8 @@
 import { alchemyClient } from './alchemy';
 import { MongoClient, ObjectId } from 'mongodb';
 
-const mongoDbUri =
-  'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
+const mongoDbUri = 'mongodb://localhost:27017';
+//'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
 
 const client = new MongoClient(mongoDbUri);
 

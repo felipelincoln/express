@@ -1,8 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
-import { Alchemy, Network, TransactionReceipt } from 'alchemy-sdk';
-import { Db, MongoClient, ObjectId, ServerMonitoringMode, WithId } from 'mongodb';
-import { supportedCollections } from './collections';
+import { Alchemy, Network } from 'alchemy-sdk';
+import { MongoClient, ObjectId } from 'mongodb';
 import {
   isValidAddress,
   isValidNumber,
@@ -12,7 +11,7 @@ import {
 } from './queryValidator';
 import { EthereumNetwork, config } from './config';
 import winston from 'winston';
-import { MethodNotFoundRpcError } from 'viem';
+import { isAddress } from 'viem';
 import moment from 'moment';
 import { alchemyClient } from './alchemy';
 
@@ -47,8 +46,8 @@ const alchemy = new Alchemy({
   network: alchemyNetwork,
 });
 
-const mongoDbUri =
-  'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
+const mongoDbUri = 'mongodb://localhost:27017';
+//'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
 
 const client = new MongoClient(mongoDbUri);
 
@@ -122,46 +121,10 @@ app.post('/jsonrpc', async (req, res, next) => {
   }
 });
 
-app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
-  try {
-    const { contract, userAddress } = req.params;
-
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
-
-    if (!collection) {
-      res.status(400).json({ error: 'collection not supported' });
-      next();
-      return;
-    }
-
-    const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
-      contractAddresses: [contract],
-      omitMetadata: true,
-    });
-
-    let tokenIds: number[] = [];
-    for await (const { tokenId } of nfts) {
-      tokenIds.push(Number(tokenId));
-    }
-
-    const tokens = await client
-      .db('mongodb')
-      .collection<Token>('token')
-      .find({ collection_id: collection._id, tokenId: { $in: tokenIds } })
-      .toArray();
-
-    res.status(200).json({ data: { tokens } });
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.get('/collection/:contract', async (req, res, next) => {
   const { contract } = req.params;
+
+  console.log(isAddress(contract));
 
   try {
     const collection = await client
@@ -175,9 +138,9 @@ app.get('/collection/:contract', async (req, res, next) => {
         .collection('token')
         .countDocuments({ collection_id: collection._id });
 
-      res
-        .status(200)
-        .json({ data: { collection, isReady: tokensCount == Number(collection.totalSupply) } });
+      const isReady = tokensCount == Number(collection.totalSupply);
+
+      res.status(200).json({ data: { collection, isReady: isReady } });
       next();
       return;
     }
@@ -212,6 +175,44 @@ app.get('/collection/:contract', async (req, res, next) => {
     await client.db('mongodb').collection('collection').insertOne(newCollection);
 
     res.status(200).json({ data: { collection: newCollection, isReady: false } });
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
+  try {
+    const { contract, userAddress } = req.params;
+
+    const collection = await client
+      .db('mongodb')
+      .collection<Collection>('collection')
+      .findOne({ contract });
+
+    if (!collection) {
+      res.status(400).json({ error: 'collection not supported' });
+      next();
+      return;
+    }
+
+    const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
+      contractAddresses: [contract],
+      omitMetadata: true,
+    });
+
+    let tokenIds: number[] = [];
+    for await (const { tokenId } of nfts) {
+      tokenIds.push(Number(tokenId));
+    }
+
+    const tokens = await client
+      .db('mongodb')
+      .collection<Token>('token')
+      .find({ collection_id: collection._id, tokenId: { $in: tokenIds } })
+      .toArray();
+
+    res.status(200).json({ data: { tokens } });
     next();
   } catch (err) {
     next(err);
@@ -517,284 +518,5 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
-  await migrate();
   logger.info('Server started');
 });
-
-async function migrate() {
-  await client.db('mongodb').createCollection('orders', {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        additionalProperties: false,
-        required: [
-          '_id',
-          'tokenId',
-          'token',
-          'offerer',
-          'endTime',
-          'signature',
-          'orderHash',
-          'salt',
-          'fulfillmentCriteria',
-        ],
-        properties: {
-          _id: { bsonType: 'objectId' },
-          tokenId: {
-            bsonType: 'string',
-            description: "'tokenId' is required (string)",
-          },
-          token: {
-            bsonType: 'string',
-            description: "'token' is required (string)",
-          },
-          offerer: {
-            bsonType: 'string',
-            description: "'offerer' is required (string)",
-          },
-          endTime: {
-            bsonType: 'string',
-            description: "'endTime' is required (string)",
-          },
-          signature: {
-            bsonType: 'string',
-            description: "'signature' is required (string)",
-          },
-          orderHash: {
-            bsonType: 'string',
-            description: "'orderHash' is required (string)",
-          },
-          salt: {
-            bsonType: 'string',
-            description: "'salt' is required (string)",
-          },
-          transferred: {
-            bsonType: 'bool',
-            description: "'transferred' is optional (bool)",
-          },
-          allowed: {
-            bsonType: 'bool',
-            description: "'allowed' is optional (bool)",
-          },
-          fee: {
-            bsonType: 'object',
-            additionalProperties: false,
-            required: ['recipient', 'amount'],
-            properties: {
-              recipient: {
-                bsonType: 'string',
-                description: "'recipient' is required (string)",
-              },
-              amount: {
-                bsonType: 'string',
-                description: "'amount' is required (string)",
-              },
-            },
-          },
-          fulfillmentCriteria: {
-            bsonType: 'object',
-            additionalProperties: false,
-            description: "'fulfillmentCriteria' is required (object)",
-            required: ['token'],
-            properties: {
-              coin: {
-                bsonType: 'object',
-                additionalProperties: false,
-                required: ['amount'],
-                properties: {
-                  amount: {
-                    bsonType: 'string',
-                    description: "'amount' is required (string)",
-                  },
-                },
-              },
-              token: {
-                bsonType: 'object',
-                additionalProperties: false,
-                description: "'token' is required (object)",
-                required: ['amount', 'identifier'],
-                properties: {
-                  amount: {
-                    bsonType: 'string',
-                    description: "'amount' is required (string)",
-                  },
-                  identifier: {
-                    bsonType: 'array',
-                    description: "'identifier' is required (array)",
-                    items: {
-                      bsonType: 'string',
-                      description: "'identifier' is required (string)",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  await client.db('mongodb').createCollection('activity', {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        additionalProperties: false,
-        required: [
-          '_id',
-          'etype',
-          'tokenId',
-          'token',
-          'offerer',
-          'fulfiller',
-          'fulfillment',
-          'txHash',
-          'createdAt',
-        ],
-        properties: {
-          _id: { bsonType: 'objectId' },
-          etype: {
-            bsonType: 'string',
-            enum: ['trade'],
-            description: "'tokenId' is required (string)",
-          },
-          tokenId: {
-            bsonType: 'string',
-            description: "'tokenId' is required (string)",
-          },
-          token: {
-            bsonType: 'string',
-            description: "'token' is required (string)",
-          },
-          offerer: {
-            bsonType: 'string',
-            description: "'offerer' is required (string)",
-          },
-          fulfiller: {
-            bsonType: 'string',
-            description: "'fulfiller' is required (string)",
-          },
-          txHash: {
-            bsonType: 'string',
-            description: "'TxHash' is required (string)",
-          },
-          createdAt: {
-            bsonType: 'string',
-            description: "'createdAt' is required (string)",
-          },
-          fulfillment: {
-            bsonType: 'object',
-            additionalProperties: false,
-            description: "'fulfillment' is required (object)",
-            required: ['token'],
-            properties: {
-              coin: {
-                bsonType: 'object',
-                additionalProperties: false,
-                description: "'coin' is required (object)",
-                required: ['amount'],
-                properties: {
-                  amount: {
-                    bsonType: 'string',
-                    description: "'amount' is required (string)",
-                  },
-                },
-              },
-              token: {
-                bsonType: 'object',
-                additionalProperties: false,
-                description: "'token' is required (object)",
-                required: ['amount', 'identifier'],
-                properties: {
-                  amount: {
-                    bsonType: 'string',
-                    description: "'amount' is required (string)",
-                  },
-                  identifier: {
-                    bsonType: 'array',
-                    description: "'identifier' is required (array)",
-                    items: {
-                      bsonType: 'string',
-                      description: "'identifier' is required (string)",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  await client.db('mongodb').createCollection('notification', {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        additionalProperties: false,
-        required: ['_id', 'activityId', 'address'],
-        properties: {
-          _id: { bsonType: 'objectId' },
-          activityId: {
-            bsonType: 'objectId',
-            description: "'activityId' is required (string)",
-          },
-          address: {
-            bsonType: 'string',
-            description: "'address' is required (string)",
-          },
-        },
-      },
-    },
-  });
-  await client.db('mongodb').createCollection('collection', {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        additionalProperties: false,
-        required: ['_id', 'contract', 'totalSupply', 'name', 'symbol', 'image', 'attributeSummary'],
-        properties: {
-          _id: { bsonType: 'objectId' },
-          contract: { bsonType: 'string' },
-          totalSupply: { bsonType: 'string' },
-          name: { bsonType: 'string' },
-          symbol: { bsonType: 'string' },
-          image: { bsonType: 'string' },
-          attributeSummary: { bsonType: 'object' },
-        },
-      },
-    },
-  });
-  await client.db('mongodb').createCollection('token', {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        additionalProperties: false,
-        required: ['_id', 'collection_id', 'tokenId', 'attributes'],
-        properties: {
-          _id: { bsonType: 'objectId' },
-          collection_id: { bsonType: 'objectId' },
-          tokenId: { bsonType: 'int' },
-          image: { bsonType: 'string' },
-          attributes: { bsonType: 'object' },
-        },
-      },
-    },
-  });
-  await client
-    .db('mongodb')
-    .collection('orders')
-    .createIndex({ token: 1, tokenId: 1 }, { unique: true });
-  await client.db('mongodb').collection('activity').createIndex({ txHash: 1 }, { unique: true });
-  await client
-    .db('mongodb')
-    .collection('notification')
-    .createIndex({ activityId: 1 }, { unique: true });
-  await client
-    .db('mongodb')
-    .collection('collection')
-    .createIndex({ contract: 1 }, { unique: true });
-
-  await client
-    .db('mongodb')
-    .collection('token')
-    .createIndex({ collection_id: 1, tokenId: 1 }, { unique: true });
-}

@@ -2,9 +2,10 @@
   "name": "express",
   "version": "1.0.0",
   "scripts": {
-    "dev": "nodemon src/server.ts",
-    "listen": "nodemon src/eventListener.ts",
-    "nft": "nodemon src/collectionUpdater.ts"
+    "start": "nodemon src/server.ts",
+    "task:dbMigrate": "ts-node src/tasks/dbMigrate.ts",
+    "task:dbCollectionListener": "ts-node src/tasks/dbCollectionListener.ts",
+    "task:ethEventListener": "ts-node src/tasks/ethEventListener.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.14",
