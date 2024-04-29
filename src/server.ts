@@ -1,96 +1,13 @@
 import express, { NextFunction, Request, Response } from 'express';
+import { createLogger } from './log';
 import cors from 'cors';
-import { Alchemy, Network } from 'alchemy-sdk';
-import { MongoClient, ObjectId } from 'mongodb';
-import {
-  isValidAddress,
-  isValidNumber,
-  isValidObject,
-  isValidString,
-  isValidTokenIds,
-} from './queryValidator';
-import { EthereumNetwork, config } from './config';
-import winston from 'winston';
+import { alchemyClient, lowerCaseAddress } from './eth';
 import { isAddress } from 'viem';
+import { DbCollection, DbOrder, DbToken, db } from './db';
 import moment from 'moment';
-import { alchemyClient } from './alchemy';
+import { ObjectId } from 'mongodb';
 
-const logger = winston.createLogger({
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.colorize(),
-    winston.format.printf(
-      ({ level, message, timestamp, context }) =>
-        `${timestamp} ${level} ${message} ${context ? JSON.stringify(context) : ''}`,
-    ),
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: `log/all.log` }),
-  ],
-});
-
-const alchemyNetwork = (() => {
-  switch (config.ethereumNetwork) {
-    case EthereumNetwork.Mainnet:
-      return Network.ETH_MAINNET;
-    case EthereumNetwork.Sepolia:
-      return Network.ETH_SEPOLIA;
-    default:
-      throw new Error(`Invalid Ethereum Network: ${config.ethereumNetwork}`);
-  }
-})();
-
-const alchemy = new Alchemy({
-  apiKey: process.env.ALCHEMY_API_KEY,
-  network: alchemyNetwork,
-});
-
-const mongoDbUri = 'mongodb://localhost:27017';
-//'mongodb+srv://express:unz3JN7zeo5rLK3J@free.ej7kjrx.mongodb.net/?retryWrites=true&w=majority&appName=AtlasApp';
-
-const client = new MongoClient(mongoDbUri);
-
-export type WithSignature<T> = T & { signature: string };
-export type WithOrderHash<T> = T & { orderHash: string };
-
-export interface Order {
-  token: string;
-  tokenId: string;
-  offerer: string;
-  fulfillmentCriteria: {
-    coin?: {
-      amount: string;
-    };
-    token: {
-      amount: string;
-      identifier: string[];
-    };
-  };
-  endTime: string;
-}
-
-interface Collection {
-  name: string;
-  symbol: string;
-  image: string;
-  contract: string;
-  totalSupply: string;
-  attributeSummary: Record<string, { attribute: string; options: Record<string, string> }>;
-}
-
-interface Token {
-  collection_id: ObjectId;
-  tokenId: number;
-  image?: string;
-  attributes: Record<string, string>;
-}
-
-interface TokenIdWithImage {
-  tokenId: number;
-  image?: string;
-}
-
+const logger = createLogger('log/all.log');
 const app = express();
 
 app.use(express.json());
@@ -103,7 +20,7 @@ app.use((_, res, next) => {
     return json.call(this, body);
   };
 
-  res.locals.startTime = Date.now();
+  res.locals.startTime = moment.now();
   res.status(404);
 
   next();
@@ -112,7 +29,7 @@ app.use((_, res, next) => {
 app.post('/jsonrpc', async (req, res, next) => {
   try {
     const { method, params, id, jsonrpc } = req.body;
-    const result = await alchemy.core.send(method, params);
+    const result = await alchemyClient.core.send(method, params);
 
     res.status(200).json({ jsonrpc, id, result });
     next();
@@ -121,24 +38,28 @@ app.post('/jsonrpc', async (req, res, next) => {
   }
 });
 
-app.get('/collection/:contract', async (req, res, next) => {
+app.get('/collections/get/:contract', async (req, res, next) => {
   const { contract } = req.params;
 
-  console.log(isAddress(contract));
+  if (!isAddress(contract)) {
+    res.status(400).json({ error: 'invalid `contract`' });
+    next();
+    return;
+  }
+
+  const lowerCaseContract = lowerCaseAddress(contract);
 
   try {
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
+    const collection = await db
+      .collection<DbCollection>('collection')
+      .findOne({ contract: lowerCaseContract });
 
     if (collection) {
-      const tokensCount = await client
-        .db('mongodb')
+      const tokensCount = await db
         .collection('token')
-        .countDocuments({ collection_id: collection._id });
+        .countDocuments({ contract: lowerCaseContract });
 
-      const isReady = tokensCount == Number(collection.totalSupply);
+      const isReady = tokensCount == collection.totalSupply;
 
       res.status(200).json({ data: { collection, isReady: isReady } });
       next();
@@ -152,27 +73,58 @@ app.get('/collection/:contract', async (req, res, next) => {
       return;
     }
 
+    if (Number(metadata.totalSupply) > 11000) {
+      logger.warn(`[${lowerCaseContract}] has supply of ${metadata.totalSupply}`);
+      res.status(400).json({ error: 'this contract is not supported yet' });
+      next();
+      return;
+    }
+
+    if (
+      !metadata.totalSupply ||
+      !metadata.name ||
+      !metadata.symbol ||
+      !metadata.openSeaMetadata?.imageUrl
+    ) {
+      logger.warn(`[${lowerCaseContract}] has missing fields.`, { context: { metadata } });
+      res.status(400).json({ error: 'this contract is not supported yet' });
+      next();
+      return;
+    }
+
     const attributes = await alchemyClient.nft.summarizeNftAttributes(contract);
     const attributeSummaryList = [];
 
+    if (!attributes.summary || Object.keys(attributes.summary).length == 0) {
+      logger.warn(`[${lowerCaseContract}] is missing attributes summary.`, {
+        context: { attributes },
+      });
+      res.status(400).json({ error: 'this contract is not supported yet' });
+      next();
+      return;
+    }
+
     for (const [k, v] of Object.entries(attributes.summary)) {
       const options = Object.keys(v);
+      options.sort();
       attributeSummaryList.push({
         attribute: k,
         options: Object.fromEntries(Object.entries(options)),
       });
     }
 
-    const newCollection = {
+    attributeSummaryList.sort((a, b) => a.attribute.localeCompare(b.attribute));
+
+    const newCollection: DbCollection = {
       name: metadata.name,
       symbol: metadata.symbol,
       image: metadata.openSeaMetadata?.imageUrl,
-      contract,
-      totalSupply: metadata.totalSupply,
+      contract: lowerCaseContract,
+      totalSupply: Number(metadata.totalSupply),
       attributeSummary: Object.fromEntries(Object.entries(attributeSummaryList)),
     };
 
-    await client.db('mongodb').collection('collection').insertOne(newCollection);
+    await db.collection('collection').insertOne(newCollection);
 
     res.status(200).json({ data: { collection: newCollection, isReady: false } });
     next();
@@ -181,14 +133,27 @@ app.get('/collection/:contract', async (req, res, next) => {
   }
 });
 
-app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
+app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
   try {
     const { contract, userAddress } = req.params;
 
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
+    if (!isAddress(contract)) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    if (!isAddress(userAddress)) {
+      res.status(400).json({ error: 'invalid `userAddress`' });
+      next();
+      return;
+    }
+
+    const lowerCaseContract = lowerCaseAddress(contract);
+
+    const collection = await db
+      .collection<DbCollection>('collection')
+      .findOne({ contract: lowerCaseContract });
 
     if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
@@ -196,7 +161,7 @@ app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
       return;
     }
 
-    const nfts = alchemy.nft.getNftsForOwnerIterator(userAddress, {
+    const nfts = alchemyClient.nft.getNftsForOwnerIterator(userAddress, {
       contractAddresses: [contract],
       omitMetadata: true,
     });
@@ -206,10 +171,9 @@ app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
       tokenIds.push(Number(tokenId));
     }
 
-    const tokens = await client
-      .db('mongodb')
-      .collection<Token>('token')
-      .find({ collection_id: collection._id, tokenId: { $in: tokenIds } })
+    const tokens = await db
+      .collection<DbToken>('token')
+      .find({ contract: lowerCaseContract, tokenId: { $in: tokenIds } })
       .toArray();
 
     res.status(200).json({ data: { tokens } });
@@ -219,22 +183,28 @@ app.get('/eth/tokens/:contract/:userAddress', async (req, res, next) => {
   }
 });
 
-app.post('/tokens/:contract', async (req, res, next) => {
+app.post('/tokens/list/:contract', async (req, res, next) => {
   try {
     const { contract } = req.params;
     const {
       tokenIds: tokenIdsRequest,
-      filters,
+      attributes,
       limit,
       skip,
     }: {
       tokenIds: string[];
-      filters: Record<string, string>;
+      attributes: Record<string, string>;
       limit?: number;
       skip?: number;
     } = req.body;
 
-    if (tokenIdsRequest && !isValidTokenIds(tokenIdsRequest)) {
+    if (!isAddress(contract)) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    if (tokenIdsRequest && !isValidNumberArray(tokenIdsRequest)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
       next();
       return;
@@ -246,28 +216,23 @@ app.post('/tokens/:contract', async (req, res, next) => {
       return;
     }
 
-    if (!filters) {
-      res.status(400).json({ error: '`filters` field is required' });
+    if (skip && !isValidNumber(skip)) {
+      res.status(400).json({ error: 'invalid `skip` field' });
       next();
       return;
     }
 
-    if (!isValidObject(filters)) {
-      res.status(400).json({ error: 'invalid `filters` field' });
+    if (attributes && !isValidObject(attributes)) {
+      res.status(400).json({ error: 'invalid `attributes` field' });
       next();
       return;
     }
 
-    if (!Object.entries(filters).flat().every(isValidString)) {
-      res.status(400).json({ error: 'invalid `filters` field' });
-      next();
-      return;
-    }
+    const lowerCaseContract = lowerCaseAddress(contract);
 
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
+    const collection = await db
+      .collection<DbCollection>('collection')
+      .findOne({ contract: lowerCaseContract });
 
     if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
@@ -275,24 +240,23 @@ app.post('/tokens/:contract', async (req, res, next) => {
       return;
     }
 
-    Object.keys(filters).forEach((key) => {
-      filters['attributes.' + key] = filters[key];
-      delete filters[key];
+    Object.keys(attributes).forEach((key) => {
+      attributes['attributes.' + key] = attributes[key];
+      delete attributes[key];
     });
 
-    const query: Record<string, any> = { collection_id: collection._id, ...filters };
+    const query: Record<string, any> = { contract: lowerCaseContract, ...attributes };
 
     if (!!tokenIdsRequest) {
       query.tokenId = { $in: tokenIdsRequest };
     }
 
-    const filteredTokenIds = await client
-      .db('mongodb')
-      .collection<Token>('token')
+    const filteredTokenIds = await db
+      .collection<DbToken>('token')
       .find(query, { sort: { tokenId: 1 }, limit, skip })
       .toArray();
 
-    const count = await client.db('mongodb').collection<Token>('token').countDocuments(query);
+    const count = await db.collection<DbToken>('token').countDocuments(query);
 
     res.status(200).json({ data: { tokens: filteredTokenIds, limit, skip, count } });
     next();
@@ -303,7 +267,7 @@ app.post('/tokens/:contract', async (req, res, next) => {
 
 app.post('/orders/create/', async (req, res, next) => {
   try {
-    const { order } = req.body;
+    const { order }: { order: DbOrder } = req.body;
 
     if (!order) {
       res.status(400).json({ error: 'missing `order` field in request body' });
@@ -311,18 +275,30 @@ app.post('/orders/create/', async (req, res, next) => {
       return;
     }
 
-    const query = { token: order.token, tokenId: order.tokenId };
-    const existingOrder = await client.db('mongodb').collection<Order>('orders').findOne(query);
+    if (!isValidObject(order)) {
+      res.status(400).json({ error: 'invalid `order` field' });
+      next();
+      return;
+    }
+
+    const query = { contract: order.contract, tokenId: order.tokenId };
+    const existingOrder = await db.collection<DbOrder>('order').findOne(query);
     if (existingOrder) {
       const hasExpired = moment.unix(Number(existingOrder.endTime)).isBefore(moment());
       if (hasExpired) {
-        await client.db('mongodb').collection('orders').deleteOne({ _id: existingOrder._id });
+        await db.collection('order').deleteOne({ _id: existingOrder._id });
       }
     }
 
-    await client.db('mongodb').collection('orders').insertOne(order);
+    const { contract, offerer, fee } = order;
+    await db.collection('order').insertOne({
+      ...order,
+      contract: lowerCaseAddress(contract),
+      offerer: lowerCaseAddress(offerer),
+      fee: fee ? { recipient: lowerCaseAddress(fee.recipient), amount: fee.amount } : null,
+    });
 
-    res.status(200).json({ data: 'Order created' });
+    res.status(200).json({ data: 'order created' });
     next();
   } catch (err) {
     const dbErrorCode = (err as any).code;
@@ -340,54 +316,45 @@ app.post('/orders/create/', async (req, res, next) => {
 
 app.post('/orders/list/:contract', async (req, res, next) => {
   try {
-    const { tokenIds, offerer }: { tokenIds?: string[]; offerer?: string } = req.body;
+    const { tokenIds, offerer }: { tokenIds?: number[]; offerer?: string } = req.body;
     const { contract } = req.params;
 
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
-
-    if (!collection) {
-      res.status(400).json({ error: 'collection not supported' });
-      next();
-      return;
-    }
-
-    if (tokenIds && !isValidTokenIds(tokenIds)) {
-      res.status(400).json({ error: 'invalid `tokenIds` field' });
-      next();
-      return;
-    }
-
-    if (offerer && !isValidAddress(offerer)) {
+    if (offerer && !isAddress(offerer)) {
       res.status(400).json({ error: 'invalid `offerer` field' });
       next();
       return;
     }
 
-    let allowed = { allowed: { $ne: false } };
-    let transferred = { transferred: { $ne: true } };
-    let tokenQuery = { token: contract };
-    let query: { $and: any[] } = { $and: [tokenQuery, allowed, transferred] }; // TODO: and is not needed!
+    if (tokenIds && !isValidNumberArray(tokenIds)) {
+      res.status(400).json({ error: 'invalid `tokenIds` field' });
+      next();
+      return;
+    }
+
+    if (!isAddress(contract)) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    let query: any = {
+      contract: lowerCaseAddress(contract),
+      allowed: { $ne: false },
+      transferred: { $ne: true },
+      endTime: { $gt: moment.now() },
+    };
 
     if (!!offerer) {
-      let offererQuery = { offerer: offerer };
-      query.$and.push(offererQuery);
+      query.offerer = lowerCaseAddress(offerer);
     }
 
     if (!!tokenIds) {
-      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } }; // TODO: toString is a workaround
-      query.$and.push(tokenIdQuery);
+      query.tokenId = { $in: tokenIds };
     }
 
-    const orders = await client.db('mongodb').collection<Order>('orders').find(query).toArray();
-    const notExpiredOrders = orders.filter((order) => {
-      const endTime = moment.unix(Number(order.endTime));
-      return endTime.isAfter(moment());
-    });
+    const orders = await db.collection<DbOrder>('order').find(query).toArray();
 
-    res.status(200).json({ data: { orders: notExpiredOrders } });
+    res.status(200).json({ data: { orders } });
     next();
   } catch (err) {
     next(err);
@@ -396,48 +363,44 @@ app.post('/orders/list/:contract', async (req, res, next) => {
 
 app.post('/activities/list/:contract', async (req, res, next) => {
   try {
-    const { address, tokenIds }: { address?: string; tokenIds?: string[] } = req.body;
+    const { address, tokenIds }: { address?: string; tokenIds?: number[] } = req.body;
     const { contract } = req.params;
 
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
-
-    if (!collection) {
-      res.status(400).json({ error: 'collection not supported' });
-      next();
-      return;
-    }
-
-    if (address && !isValidAddress(address)) {
+    if (address && !isAddress(address)) {
       res.status(400).json({ error: 'invalid `address` field' });
       next();
       return;
     }
 
-    if (tokenIds && !isValidTokenIds(tokenIds)) {
+    if (tokenIds && !isValidNumberArray(tokenIds)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
       next();
       return;
     }
 
-    let tokenQuery = { token: contract };
-    let query: { $and: any[] } = { $and: [tokenQuery] };
+    if (!isAddress(contract)) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    let query: any = { contract: lowerCaseAddress(contract) };
 
     if (!!address) {
-      let addressQuery = { $or: [{ fulfiller: address }, { offerer: address }] };
-      query.$and.push(addressQuery);
+      query.$or = [
+        { fulfiller: lowerCaseAddress(address) },
+        { offerer: lowerCaseAddress(address) },
+      ];
     }
 
     if (!!tokenIds) {
-      let tokenIdQuery = { tokenId: { $in: tokenIds.map((t) => t.toString()) } };
-      query.$and.push(tokenIdQuery);
+      query.tokenId = { $in: tokenIds };
     }
 
-    const activities = (
-      await client.db('mongodb').collection('activity').find(query).toArray()
-    ).reverse();
+    const activities = await db
+      .collection('activity')
+      .find(query, { sort: { createdAt: -1 } })
+      .toArray();
 
     res.status(200).json({ data: { activities } });
     next();
@@ -446,28 +409,18 @@ app.post('/activities/list/:contract', async (req, res, next) => {
   }
 });
 
-// TODO: add collection + chain on notifications table
-app.get('/notifications/list/:contract/:userAddress', async (req, res, next) => {
+app.get('/notifications/list/:address', async (req, res, next) => {
   try {
-    const { contract, userAddress } = req.params;
+    const { address } = req.params;
 
-    const collection = await client
-      .db('mongodb')
-      .collection<Collection>('collection')
-      .findOne({ contract });
-
-    if (!collection) {
-      res.status(400).json({ error: 'collection not supported' });
+    if (address && !isAddress(address)) {
+      res.status(400).json({ error: 'invalid `address`' });
       next();
       return;
     }
 
-    const query = { address: userAddress };
-    const notifications = await client
-      .db('mongodb')
-      .collection('notification')
-      .find(query)
-      .toArray();
+    const query = { address: lowerCaseAddress(address) };
+    const notifications = await db.collection('notification').find(query).toArray();
 
     res.status(200).json({ data: { notifications } });
     next();
@@ -480,12 +433,16 @@ app.post('/notifications/view/', async (req, res, next) => {
   try {
     const { notificationIds }: { notificationIds: string[] } = req.body;
 
-    // TODO: validate input
+    if (notificationIds && !isValidStringArray(notificationIds)) {
+      res.status(400).json({ error: 'invalid `notificationIds` field' });
+      next();
+      return;
+    }
 
     const notificationObjectIds = notificationIds.map((id) => new ObjectId(id));
 
     const query = { _id: { $in: notificationObjectIds } };
-    const notifications = await client.db('mongodb').collection('notification').deleteMany(query);
+    const notifications = await db.collection('notification').deleteMany(query);
 
     res.status(200).json({ data: { notifications } });
     next();
@@ -495,7 +452,7 @@ app.post('/notifications/view/', async (req, res, next) => {
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
   next();
   logger.error(err.stack);
@@ -503,7 +460,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
 
 // Logger
 app.use((req, res, next) => {
-  const ms = Date.now() - res.locals.startTime;
+  const ms = moment.now() - res.locals.startTime;
   const logMessage = `${res.statusCode} ${req.method} ${req.url} (${ms} ms)`;
   const error = res.locals.error;
 
@@ -520,3 +477,47 @@ app.use((req, res, next) => {
 app.listen(3000, async () => {
   logger.info('Server started');
 });
+
+function isValidNumberArray(numArray: any): boolean {
+  if (!Array.isArray(numArray)) {
+    return false;
+  }
+
+  if (
+    !numArray.every((num) => {
+      return isValidNumber(num);
+    })
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isValidStringArray(strArray: any): boolean {
+  if (!Array.isArray(strArray)) {
+    return false;
+  }
+
+  if (
+    !strArray.every((str) => {
+      return isValidString(str);
+    })
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isValidObject(object: any): boolean {
+  return typeof object === 'object' && !Array.isArray(object) && object !== null;
+}
+
+function isValidString(string: any): boolean {
+  return typeof string === 'string';
+}
+
+function isValidNumber(number: any): boolean {
+  return typeof number === 'number';
+}
