@@ -123,10 +123,11 @@ const notification = {
     $jsonSchema: {
       bsonType: 'object',
       additionalProperties: false,
-      required: ['_id', 'activityId', 'address'],
+      required: ['_id', 'activityId', 'contract', 'address'],
       properties: {
         _id: { bsonType: 'objectId' },
         activityId: { bsonType: 'objectId' },
+        contract: { bsonType: 'string' },
         address: { bsonType: 'string' },
       },
     },

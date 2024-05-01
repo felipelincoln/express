@@ -52,7 +52,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
   try {
     const collection = await db
       .collection<DbCollection>('collection')
-      .findOne({ contract: lowerCaseContract });
+      .findOne({ contract: lowerCaseContract }, { projection: { _id: 0 } });
 
     if (collection) {
       const tokensCount = await db
@@ -60,6 +60,23 @@ app.get('/collections/get/:contract', async (req, res, next) => {
         .countDocuments({ contract: lowerCaseContract });
 
       const isReady = tokensCount == collection.totalSupply;
+
+      if (isReady) {
+        const tokens = await db
+          .collection<DbToken>('token')
+          .find(
+            { contract: lowerCaseContract },
+            { projection: { _id: 0, contract: 0, attributes: 0 } },
+          )
+          .toArray();
+
+        // TODO: remove baseURL
+        const tokenImages = Object.fromEntries(tokens.map((t) => [t.tokenId, t.image]));
+
+        res.status(200).json({ data: { collection, isReady: isReady, tokenImages } });
+        next();
+        return;
+      }
 
       res.status(200).json({ data: { collection, isReady: isReady } });
       next();
@@ -171,12 +188,7 @@ app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
       tokenIds.push(Number(tokenId));
     }
 
-    const tokens = await db
-      .collection<DbToken>('token')
-      .find({ contract: lowerCaseContract, tokenId: { $in: tokenIds } })
-      .toArray();
-
-    res.status(200).json({ data: { tokens } });
+    res.status(200).json({ data: { tokenIds } });
     next();
   } catch (err) {
     next(err);
@@ -409,18 +421,27 @@ app.post('/activities/list/:contract', async (req, res, next) => {
   }
 });
 
-app.get('/notifications/list/:address', async (req, res, next) => {
+app.get('/notifications/list/:contract/:address', async (req, res, next) => {
   try {
-    const { address } = req.params;
+    const { address, contract } = req.params;
 
-    if (address && !isAddress(address)) {
+    if (!isAddress(address)) {
       res.status(400).json({ error: 'invalid `address`' });
       next();
       return;
     }
 
-    const query = { address: lowerCaseAddress(address) };
-    const notifications = await db.collection('notification').find(query).toArray();
+    if (!isAddress(contract)) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    const query = { contract: lowerCaseAddress(contract), address: lowerCaseAddress(address) };
+    const notifications = await db
+      .collection('notification')
+      .find(query, { projection: { _id: 0 } })
+      .toArray();
 
     res.status(200).json({ data: { notifications } });
     next();
