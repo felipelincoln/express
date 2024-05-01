@@ -364,7 +364,10 @@ app.post('/orders/list/:contract', async (req, res, next) => {
       query.tokenId = { $in: tokenIds };
     }
 
-    const orders = await db.collection<DbOrder>('order').find(query).toArray();
+    const orders = await db
+      .collection<DbOrder>('order')
+      .find(query, { projection: { _id: 0 } })
+      .toArray();
 
     res.status(200).json({ data: { orders } });
     next();
