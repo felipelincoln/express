@@ -10,7 +10,7 @@ export enum EthereumNetwork {
 }
 
 export const config = {
-  ethereumNetwork: EthereumNetwork.Mainnet,
+  ethereumNetwork: EthereumNetwork.Sepolia,
   db: {
     uri: 'mongodb://localhost:27017',
     name: 'collectoor',

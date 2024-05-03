@@ -199,13 +199,13 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
   try {
     const { contract } = req.params;
     const {
-      tokenIds: tokenIdsRequest,
-      attributes,
+      tokenIds,
+      filter,
       limit,
       skip,
     }: {
-      tokenIds: string[];
-      attributes: Record<string, string>;
+      tokenIds?: string[];
+      filter?: Record<string, string>;
       limit?: number;
       skip?: number;
     } = req.body;
@@ -216,7 +216,7 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
       return;
     }
 
-    if (tokenIdsRequest && !isValidNumberArray(tokenIdsRequest)) {
+    if (tokenIds && !isValidNumberArray(tokenIds)) {
       res.status(400).json({ error: 'invalid `tokenIds` field' });
       next();
       return;
@@ -234,8 +234,8 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
       return;
     }
 
-    if (attributes && !isValidObject(attributes)) {
-      res.status(400).json({ error: 'invalid `attributes` field' });
+    if (filter && !isValidObject(filter)) {
+      res.status(400).json({ error: 'invalid `filter` field' });
       next();
       return;
     }
@@ -252,22 +252,26 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
       return;
     }
 
-    Object.keys(attributes).forEach((key) => {
-      attributes['attributes.' + key] = attributes[key];
-      delete attributes[key];
-    });
-
-    const query: Record<string, any> = { contract: lowerCaseContract, ...attributes };
-
-    if (!!tokenIdsRequest) {
-      query.tokenId = { $in: tokenIdsRequest };
+    if (filter) {
+      Object.keys(filter).forEach((key) => {
+        filter['attributes.' + key] = filter[key];
+        delete filter[key];
+      });
     }
 
-    const filteredTokenIds = await db
+    const query: Record<string, any> = { contract: lowerCaseContract, ...filter };
+
+    if (tokenIds) {
+      query.tokenId = { $in: tokenIds };
+    }
+
+    const projection = { _id: 0, contract: 0, attributes: 0, image: 0 };
+    const filteredTokens = await db
       .collection<DbToken>('token')
-      .find(query, { sort: { tokenId: 1 }, limit, skip })
+      .find(query, { sort: { tokenId: 1 }, limit, skip, projection })
       .toArray();
 
+    const filteredTokenIds = filteredTokens.map((token) => token.tokenId);
     const count = await db.collection<DbToken>('token').countDocuments(query);
 
     res.status(200).json({ data: { tokens: filteredTokenIds, limit, skip, count } });
