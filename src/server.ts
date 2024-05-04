@@ -357,7 +357,7 @@ app.post('/orders/list/:contract', async (req, res, next) => {
       contract: lowerCaseAddress(contract),
       allowed: { $ne: false },
       transferred: { $ne: true },
-      endTime: { $gt: moment.now() },
+      endTime: { $gt: moment().unix() },
     };
 
     if (!!offerer) {

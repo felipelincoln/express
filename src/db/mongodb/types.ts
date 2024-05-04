@@ -50,7 +50,7 @@ export interface DbCollection {
   image: string;
   contract: LowerCaseAddress;
   totalSupply: number;
-  attributeSummary: Record<number, { attribute: string; options: Record<number, string> }>;
+  attributeSummary: Record<string, { attribute: string; options: Record<string, string> }>;
 }
 
 export interface DbToken {
