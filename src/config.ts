@@ -12,7 +12,7 @@ export enum EthereumNetwork {
 export const config = {
   ethereumNetwork: EthereumNetwork.Sepolia,
   db: {
-    uri: 'mongodb+srv://express:oTt6fIPeNsSXhCc2@free.ej7kjrx.mongodb.net/',
+    uri: 'mongodb://localhost:27017',
     name: 'collectoor',
   },
   eth: {

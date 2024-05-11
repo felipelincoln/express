@@ -2,7 +2,7 @@ import fs from 'fs';
 import { createLogger } from '../log';
 import { alchemyClient, lowerCaseAddress } from '../eth';
 import { Log } from 'alchemy-sdk';
-import { DbActivity, DbOrder, db } from '../db';
+import { DbActivity, DbNotification, DbOrder, db } from '../db';
 import { decodeEventLog, erc721Abi } from 'viem';
 import seaportAbi from './ethEventListener/seaport.abi.json';
 import moment from 'moment';
@@ -92,6 +92,7 @@ setInterval(async () => {
     await run();
   } catch (e: any) {
     logger.error('task failed. retrying', { context: e });
+    isRunning = false;
   }
 }, taskInterval);
 
@@ -131,7 +132,7 @@ async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder
       },
     },
     txHash,
-    createdAt: moment.now(),
+    createdAt: moment().unix(),
   };
 
   if (activeOrder.fulfillmentCriteria.coin) {
@@ -140,9 +141,10 @@ async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder
 
   const activityInsertResult = await db.collection('activity').insertOne(activity);
 
-  const notification = {
+  const notification: DbNotification = {
     activityId: activityInsertResult.insertedId,
     address: activeOrder.offerer,
+    contract: activeOrder.contract,
   };
 
   await db.collection('notification').insertOne(notification);

@@ -52,7 +52,6 @@ const order = {
             token: {
               bsonType: 'object',
               additionalProperties: false,
-              description: "'token' is required (object)",
               required: ['amount', 'identifier'],
               properties: {
                 amount: { bsonType: 'string' },

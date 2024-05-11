@@ -445,10 +445,7 @@ app.get('/notifications/list/:contract/:address', async (req, res, next) => {
     }
 
     const query = { contract: lowerCaseAddress(contract), address: lowerCaseAddress(address) };
-    const notifications = await db
-      .collection('notification')
-      .find(query, { projection: { _id: 0 } })
-      .toArray();
+    const notifications = await db.collection('notification').find(query).toArray();
 
     res.status(200).json({ data: { notifications } });
     next();

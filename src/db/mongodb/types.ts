@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { LowerCaseAddress } from '../../eth';
 
 export interface DbOrder {
@@ -58,4 +59,10 @@ export interface DbToken {
   tokenId: number;
   image?: string;
   attributes: Record<string, string>;
+}
+
+export interface DbNotification {
+  activityId: ObjectId;
+  address: LowerCaseAddress;
+  contract: LowerCaseAddress;
 }
