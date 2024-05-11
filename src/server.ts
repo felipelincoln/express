@@ -503,7 +503,7 @@ app.use((req, res, next) => {
 });
 
 app.listen(3000, async () => {
-  logger.info('Server started');
+  logger.info('Server started on http://localhost:3000');
 });
 
 function isValidNumberArray(numArray: any): boolean {
