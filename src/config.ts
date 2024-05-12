@@ -1,3 +1,5 @@
+import { LowerCaseAddress } from './eth';
+
 function fail(varName: string) {
   throw new Error(`${varName} is required.`);
 }
@@ -17,6 +19,7 @@ export const config = {
   },
   eth: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
-    seaportContract: '0x0000000000000068F116a894984e2DB1123eB395',
+    seaportContract: '0x0000000000000068f116a894984e2db1123eb395' as LowerCaseAddress,
+    seaportConduitContract: '0x1e0049783f008a0085193e00003d00cd54003c71' as LowerCaseAddress,
   },
 };

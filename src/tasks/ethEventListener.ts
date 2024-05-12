@@ -7,6 +7,7 @@ import { decodeEventLog, erc721Abi } from 'viem';
 import seaportAbi from './ethEventListener/seaport.abi.json';
 import moment from 'moment';
 import { WithId } from 'mongodb';
+import { config } from '../config';
 
 const FULFILLED_ORDER = '0x9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31';
 const CANCELED_ORDER = '0x6bacc01dbe442496068f7d234edd811f1a5f833243e0aec824f86ab861f3c90d';
@@ -19,7 +20,6 @@ logger.info('task started');
 const stateFile = 'log/eventListenerState.txt';
 const blocksRange = 100;
 const taskInterval = 12_000;
-const seaportContract = lowerCaseAddress('0x0000000000000068F116a894984e2DB1123eB395');
 let isRunning = false;
 
 async function run() {
@@ -59,15 +59,15 @@ async function run() {
 
     switch (topic0) {
       case FULFILLED_ORDER:
-        if (address !== seaportContract) break;
+        if (address !== config.eth.seaportContract) break;
         await processFulfilledOrder(log, orders);
         break;
       case CANCELED_ORDER:
-        if (address !== seaportContract) break;
+        if (address !== config.eth.seaportContract) break;
         await processCanceledOrder(log, orders);
         break;
       case INCREMENTED_COUNTER:
-        if (address !== seaportContract) break;
+        if (address !== config.eth.seaportContract) break;
         await processIncrementedCounter(log, orders);
         break;
       case TRANSFER:
@@ -264,7 +264,7 @@ async function processSetApprovalForAll(approvalForAll: Log, orders: WithId<DbOr
     (order) => order.contract === token && order.offerer === owner,
   );
   if (setApprovalActiveOrders.length === 0) return;
-  if (operator !== seaportContract) return;
+  if (operator !== config.eth.seaportConduitContract) return;
 
   // 1. User is revoking allowance: Deactivate orders
   if (!approved) {
