@@ -41,8 +41,8 @@ async function run() {
       fromBlock: lastProcessedBlock + 1,
       toBlock: blockToProcess,
     });
-  } catch (e: any) {
-    logger.error(e.stack);
+  } catch (e) {
+    logger.error(e);
     isRunning = false;
     return;
   }
@@ -90,7 +90,7 @@ setInterval(async () => {
 
   try {
     await run();
-  } catch (e: any) {
+  } catch (e) {
     logger.error('task failed. retrying', { context: e });
     isRunning = false;
   }
@@ -103,6 +103,7 @@ async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder
     topics: fulfilledOrder.topics as [],
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const args = decodedLog.args as any as {
     orderHash: string;
     recipient: string;
@@ -160,6 +161,7 @@ async function processCanceledOrder(canceledOrder: Log, orders: WithId<DbOrder>[
     topics: canceledOrder.topics as [],
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const args = decodedLog.args as any as { orderHash: string };
   const orderHash = args.orderHash;
   const activeOrder = orders.find((order) => order.orderHash === orderHash);
@@ -178,6 +180,7 @@ async function processIncrementedCounter(incrementedCounter: Log, orders: WithId
     topics: incrementedCounter.topics as [],
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const args = decodedLog.args as any as { offerer: string };
   const offerer = lowerCaseAddress(args.offerer);
   const offererActiveOrders = orders.filter((order) => order.offerer === offerer);
@@ -201,6 +204,8 @@ async function processTransfer(transfer: Log, orders: WithId<DbOrder>[]) {
   });
 
   const token = lowerCaseAddress(transfer.address);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const args = decodedLog.args as any as {
     from: string;
     to: string;
@@ -251,6 +256,8 @@ async function processSetApprovalForAll(approvalForAll: Log, orders: WithId<DbOr
   });
 
   const token = lowerCaseAddress(approvalForAll.address);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const args = decodedLog.args as any as {
     owner: string;
     operator: string;

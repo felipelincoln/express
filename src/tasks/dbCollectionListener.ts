@@ -104,7 +104,7 @@ setInterval(async () => {
 
   try {
     await run();
-  } catch (e: any) {
+  } catch (e) {
     logger.error('task failed. retrying', { context: e });
   }
 }, 10_000);
