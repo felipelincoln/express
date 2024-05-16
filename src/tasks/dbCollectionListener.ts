@@ -1,4 +1,4 @@
-import { DbCollection, DbToken, db } from '../db';
+import { DbToken, createTokenCollection, db } from '../db';
 import { alchemyClient } from '../eth';
 import { createLogger } from '../log';
 
@@ -9,21 +9,20 @@ let isRunning = false;
 async function run() {
   isRunning = true;
 
-  const collections = await db.collection<DbCollection>('collection').find().toArray();
+  const collections = await db.collection.find().toArray();
 
   for (const collection of collections) {
     const totalSupply = collection.totalSupply;
-    const tokensCount = await db
-      .collection<DbToken>('token')
-      .countDocuments({ contract: collection.contract });
+    const tokensCount = await db.token(collection.contract).countDocuments();
 
+    if (totalSupply == 0) {
+      await createTokenCollection(collection.contract);
+    }
     if (totalSupply == tokensCount) {
       continue;
     }
 
-    const lastToken = await db
-      .collection<DbToken>('token')
-      .findOne({ contract: collection.contract }, { sort: { tokenId: -1 } });
+    const lastToken = await db.token(collection.contract).findOne({}, { sort: { tokenId: -1 } });
     const lastTokenId = lastToken?.tokenId;
 
     logger.info(`[${collection.name}] processing (${tokensCount} / ${totalSupply}) ⌛`);
@@ -57,7 +56,6 @@ async function run() {
         });
 
         const newToken: DbToken = {
-          contract: collection.contract,
           tokenId: Number(token.tokenId),
           attributes,
         };
@@ -71,7 +69,7 @@ async function run() {
         newTokensCount++;
 
         if (newTokensBatch.length >= 100) {
-          await db.collection('token').insertMany(newTokensBatch);
+          await db.token(collection.contract).insertMany(newTokensBatch);
           newTokensBatch = [];
           logger.info(
             `[${collection.name}] processing (${tokensCount + newTokensCount} / ${totalSupply}) ⌛`,
@@ -80,7 +78,7 @@ async function run() {
       }
 
       if (newTokensBatch.length > 0) {
-        await db.collection('token').insertMany(newTokensBatch);
+        await db.token(collection.contract).insertMany(newTokensBatch);
         logger.info(
           `[${collection.name}] processing (${tokensCount + newTokensCount} / ${totalSupply}) ⌛`,
         );
@@ -89,7 +87,7 @@ async function run() {
       logger.info(`[${collection.name}] finished ✅`);
     } catch (e) {
       if (newTokensBatch.length > 0) {
-        await db.collection('token').insertMany(newTokensBatch);
+        await db.token(collection.contract).insertMany(newTokensBatch);
       }
       logger.warn(`[${collection.name}] failed (${tokensCount + newTokensCount}) ⚠️`);
       continue;

@@ -50,27 +50,22 @@ app.get('/collections/get/:contract', async (req, res, next) => {
   const lowerCaseContract = lowerCaseAddress(contract);
 
   try {
-    const collection = await db
-      .collection<DbCollection>('collection')
-      .findOne({ contract: lowerCaseContract }, { projection: { _id: 0 } });
+    const collection = await db.collection.findOne(
+      { contract: lowerCaseContract },
+      { projection: { _id: 0 } },
+    );
 
     if (collection) {
-      const tokensCount = await db
-        .collection('token')
-        .countDocuments({ contract: lowerCaseContract });
+      const tokensCount = await db.token(lowerCaseContract).countDocuments();
 
       const isReady = tokensCount == collection.totalSupply;
 
       if (isReady) {
         const tokens = await db
-          .collection<DbToken>('token')
-          .find(
-            { contract: lowerCaseContract },
-            { projection: { _id: 0, contract: 0, attributes: 0 } },
-          )
+          .token(lowerCaseContract)
+          .find({}, { projection: { attributes: 0 } })
           .toArray();
 
-        // TODO: remove baseURL
         const tokenImages = Object.fromEntries(tokens.map((t) => [t.tokenId, t.image]));
 
         res.status(200).json({ data: { collection, isReady: isReady, tokenImages } });
@@ -141,7 +136,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
       attributeSummary: Object.fromEntries(Object.entries(attributeSummaryList)),
     };
 
-    await db.collection('collection').insertOne(newCollection);
+    await db.collection.insertOne(newCollection);
 
     res.status(200).json({ data: { collection: newCollection, isReady: false } });
     next();
@@ -168,9 +163,7 @@ app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
 
     const lowerCaseContract = lowerCaseAddress(contract);
 
-    const collection = await db
-      .collection<DbCollection>('collection')
-      .findOne({ contract: lowerCaseContract });
+    const collection = await db.collection.findOne({ contract: lowerCaseContract });
 
     if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
@@ -242,9 +235,7 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
 
     const lowerCaseContract = lowerCaseAddress(contract);
 
-    const collection = await db
-      .collection<DbCollection>('collection')
-      .findOne({ contract: lowerCaseContract });
+    const collection = await db.collection.findOne({ contract: lowerCaseContract });
 
     if (!collection) {
       res.status(400).json({ error: 'collection not supported' });
@@ -259,20 +250,20 @@ app.post('/tokens/list/:contract', async (req, res, next) => {
       });
     }
 
-    const query: Record<string, any> = { contract: lowerCaseContract, ...filter };
+    const query: Record<string, any> = { ...filter };
 
     if (tokenIds) {
       query.tokenId = { $in: tokenIds };
     }
 
-    const projection = { _id: 0, contract: 0, attributes: 0, image: 0 };
+    const projection = { attributes: 0, image: 0 };
     const filteredTokens = await db
-      .collection<DbToken>('token')
+      .token(lowerCaseContract)
       .find(query, { sort: { tokenId: 1 }, limit, skip, projection })
       .toArray();
 
     const filteredTokenIds = filteredTokens.map((token) => token.tokenId);
-    const count = await db.collection<DbToken>('token').countDocuments(query);
+    const count = await db.token(lowerCaseContract).countDocuments(query);
 
     res.status(200).json({ data: { tokens: filteredTokenIds, limit, skip, count } });
     next();
@@ -298,20 +289,20 @@ app.post('/orders/create/', async (req, res, next) => {
     }
 
     const query = { contract: order.contract, tokenId: order.tokenId };
-    const existingOrder = await db.collection<DbOrder>('order').findOne(query);
+    const existingOrder = await db.order.findOne(query);
     if (existingOrder) {
       const hasExpired = moment.unix(Number(existingOrder.endTime)).isBefore(moment());
       if (hasExpired) {
-        await db.collection('order').deleteOne({ _id: existingOrder._id });
+        await db.order.deleteOne({ _id: existingOrder._id });
       }
     }
 
     const { contract, offerer, fee } = order;
-    await db.collection('order').insertOne({
+    await db.order.insertOne({
       ...order,
       contract: lowerCaseAddress(contract),
       offerer: lowerCaseAddress(offerer),
-      fee: fee ? { recipient: lowerCaseAddress(fee.recipient), amount: fee.amount } : null,
+      fee: fee ? { recipient: lowerCaseAddress(fee.recipient), amount: fee.amount } : undefined,
     });
 
     res.status(200).json({ data: 'order created' });
@@ -368,10 +359,7 @@ app.post('/orders/list/:contract', async (req, res, next) => {
       query.tokenId = { $in: tokenIds };
     }
 
-    const orders = await db
-      .collection<DbOrder>('order')
-      .find(query, { projection: { _id: 0 } })
-      .toArray();
+    const orders = await db.order.find(query, { projection: { _id: 0 } }).toArray();
 
     res.status(200).json({ data: { orders } });
     next();
@@ -416,10 +404,7 @@ app.post('/activities/list/:contract', async (req, res, next) => {
       query.tokenId = { $in: tokenIds };
     }
 
-    const activities = await db
-      .collection('activity')
-      .find(query, { sort: { createdAt: -1 } })
-      .toArray();
+    const activities = await db.activity.find(query, { sort: { createdAt: -1 } }).toArray();
 
     res.status(200).json({ data: { activities } });
     next();
@@ -445,7 +430,7 @@ app.get('/notifications/list/:contract/:address', async (req, res, next) => {
     }
 
     const query = { contract: lowerCaseAddress(contract), address: lowerCaseAddress(address) };
-    const notifications = await db.collection('notification').find(query).toArray();
+    const notifications = await db.notification.find(query).toArray();
 
     res.status(200).json({ data: { notifications } });
     next();
@@ -467,7 +452,7 @@ app.post('/notifications/view/', async (req, res, next) => {
     const notificationObjectIds = notificationIds.map((id) => new ObjectId(id));
 
     const query = { _id: { $in: notificationObjectIds } };
-    const notifications = await db.collection('notification').deleteMany(query);
+    const notifications = await db.notification.deleteMany(query);
 
     res.status(200).json({ data: { notifications } });
     next();

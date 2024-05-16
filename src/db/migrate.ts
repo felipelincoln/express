@@ -1,4 +1,4 @@
-import { db } from '../mongodb';
+import { databaseMain, databaseTokens, db } from './db';
 
 const order = {
   validator: {
@@ -157,10 +157,9 @@ const token = {
     $jsonSchema: {
       bsonType: 'object',
       additionalProperties: false,
-      required: ['_id', 'contract', 'tokenId', 'attributes'],
+      required: ['_id', 'tokenId', 'attributes'],
       properties: {
         _id: { bsonType: 'objectId' },
-        contract: { bsonType: 'string' },
         tokenId: { bsonType: 'int' },
         image: { bsonType: 'string' },
         attributes: { bsonType: 'object' },
@@ -170,14 +169,17 @@ const token = {
 };
 
 export async function dbMigrate() {
-  await db.createCollection('order', order);
-  await db.createCollection('activity', activity);
-  await db.createCollection('notification', notification);
-  await db.createCollection('collection', collection);
-  await db.createCollection('token', token);
+  await databaseMain.createCollection('order', order);
+  await databaseMain.createCollection('activity', activity);
+  await databaseMain.createCollection('notification', notification);
+  await databaseMain.createCollection('collection', collection);
 
-  await db.collection('order').createIndex({ contract: 1, tokenId: 1 }, { unique: true });
-  await db.collection('activity').createIndex({ txHash: 1 }, { unique: true });
-  await db.collection('collection').createIndex({ contract: 1 }, { unique: true });
-  await db.collection('token').createIndex({ contract: 1 });
+  await db.order.createIndex({ contract: 1, tokenId: 1 }, { unique: true });
+  await db.activity.createIndex({ txHash: 1 }, { unique: true });
+  await db.collection.createIndex({ contract: 1 }, { unique: true });
+}
+
+export async function createTokenCollection(contract: string) {
+  await databaseTokens.createCollection(contract, token);
+  db.token(contract).createIndex({ tokenId: 1 }, { unique: true });
 }

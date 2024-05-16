@@ -49,7 +49,7 @@ async function run() {
 
   logger.info(`${logs.length} events on block ${blockToProcess}`);
 
-  const orders = await db.collection<DbOrder>('order').find().toArray();
+  const orders = await db.order.find().toArray();
 
   for (const log of logs) {
     const topic0 = log.topics[0];
@@ -140,7 +140,7 @@ async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder
     activity.fulfillment.coin = activeOrder.fulfillmentCriteria.coin;
   }
 
-  const activityInsertResult = await db.collection('activity').insertOne(activity);
+  const activityInsertResult = await db.activity.insertOne(activity);
 
   const notification: DbNotification = {
     activityId: activityInsertResult.insertedId,
@@ -148,8 +148,8 @@ async function processFulfilledOrder(fulfilledOrder: Log, orders: WithId<DbOrder
     contract: activeOrder.contract,
   };
 
-  await db.collection('notification').insertOne(notification);
-  await db.collection('order').deleteOne({ _id: activeOrder._id });
+  await db.notification.insertOne(notification);
+  await db.order.deleteOne({ _id: activeOrder._id });
 
   logger.info(`fulfilled ${txHash} ✅`);
 }
@@ -168,7 +168,7 @@ async function processCanceledOrder(canceledOrder: Log, orders: WithId<DbOrder>[
 
   if (!activeOrder) return;
 
-  await db.collection('order').deleteOne({ _id: activeOrder._id });
+  await db.order.deleteOne({ _id: activeOrder._id });
 
   logger.info(`cancelled ${activeOrder.contract}:${activeOrder.tokenId}🔥`);
 }
@@ -187,7 +187,7 @@ async function processIncrementedCounter(incrementedCounter: Log, orders: WithId
 
   if (offererActiveOrders.length == 0) return;
 
-  await db.collection('order').deleteMany({ offerer });
+  await db.order.deleteMany({ offerer });
 
   for (const offererActiveOrder of offererActiveOrders) {
     logger.info(`cancelled ${offererActiveOrder.contract}:${offererActiveOrder.tokenId}🔥`);
@@ -224,9 +224,7 @@ async function processTransfer(transfer: Log, orders: WithId<DbOrder>[]) {
 
     // 1. Offerer is transfering out the token with active order: Deactivate order
     if (from == offerer) {
-      await db
-        .collection('order')
-        .updateOne({ _id: transferedActiveOrder._id }, { $set: { transferred: true } });
+      await db.order.updateOne({ _id: transferedActiveOrder._id }, { $set: { transferred: true } });
       logger.info(
         `transferred = true ${transferedActiveOrder.contract}:${transferedActiveOrder.tokenId} ⏸`,
       );
@@ -235,9 +233,10 @@ async function processTransfer(transfer: Log, orders: WithId<DbOrder>[]) {
 
     // 2. Someone is transfering back the token to offerer with inactive order: Activate order
     if (to == offerer) {
-      await db
-        .collection('order')
-        .updateOne({ _id: transferedActiveOrder._id }, { $set: { transferred: false } });
+      await db.order.updateOne(
+        { _id: transferedActiveOrder._id },
+        { $set: { transferred: false } },
+      );
       logger.info(
         `transferred = false ${transferedActiveOrder.contract}:${transferedActiveOrder.tokenId} ▶️`,
       );
@@ -275,12 +274,10 @@ async function processSetApprovalForAll(approvalForAll: Log, orders: WithId<DbOr
 
   // 1. User is revoking allowance: Deactivate orders
   if (!approved) {
-    await db
-      .collection('order')
-      .updateMany(
-        { _id: { $in: setApprovalActiveOrders.map((order) => order._id) } },
-        { $set: { allowed: false } },
-      );
+    await db.order.updateMany(
+      { _id: { $in: setApprovalActiveOrders.map((order) => order._id) } },
+      { $set: { allowed: false } },
+    );
 
     for (const transferedActiveOrder of setApprovalActiveOrders) {
       logger.info(
@@ -291,12 +288,10 @@ async function processSetApprovalForAll(approvalForAll: Log, orders: WithId<DbOr
 
   // 2. User is giving approval: Activate order
   if (approved) {
-    await db
-      .collection('order')
-      .updateMany(
-        { _id: { $in: setApprovalActiveOrders.map((order) => order._id) } },
-        { $set: { allowed: true } },
-      );
+    await db.order.updateMany(
+      { _id: { $in: setApprovalActiveOrders.map((order) => order._id) } },
+      { $set: { allowed: true } },
+    );
     for (const transferedActiveOrder of setApprovalActiveOrders) {
       logger.info(
         `allowed = true ${transferedActiveOrder.contract}:${transferedActiveOrder.tokenId} ▶️`,

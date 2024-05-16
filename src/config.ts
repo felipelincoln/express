@@ -12,10 +12,10 @@ export enum EthereumNetwork {
 }
 
 export const config = {
-  ethereumNetwork: EthereumNetwork.Sepolia,
+  ethereumNetwork: EthereumNetwork.Mainnet,
   db: {
     uri: 'mongodb://localhost:27017',
-    name: 'collectoor',
+    name: 'eth-mainnet',
   },
   eth: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),

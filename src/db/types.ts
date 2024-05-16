@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { LowerCaseAddress } from '../../eth';
+import { LowerCaseAddress } from '../eth';
 
 export interface DbOrder {
   contract: LowerCaseAddress;
@@ -55,7 +55,6 @@ export interface DbCollection {
 }
 
 export interface DbToken {
-  contract: LowerCaseAddress;
   tokenId: number;
   image?: string;
   attributes: Record<string, string>;
