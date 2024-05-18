@@ -38,6 +38,35 @@ app.post('/jsonrpc', async (req, res, next) => {
   }
 });
 
+app.get('/collections/list/', async (req, res, next) => {
+  const {
+    limit,
+    skip,
+  }: {
+    limit?: number;
+    skip?: number;
+  } = req.body;
+
+  if (limit && !isValidNumber(limit)) {
+    res.status(400).json({ error: 'invalid `limit` field' });
+    next();
+    return;
+  }
+
+  if (skip && !isValidNumber(skip)) {
+    res.status(400).json({ error: 'invalid `skip` field' });
+    next();
+    return;
+  }
+
+  const collections = await db.collection
+    .find({}, { limit, skip, projection: { _id: 0 } })
+    .toArray();
+
+  res.status(200).json({ data: { collections } });
+  next();
+});
+
 app.get('/collections/get/:contract', async (req, res, next) => {
   const { contract } = req.params;
 
