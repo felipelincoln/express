@@ -15,7 +15,7 @@ export const config = {
   ethereumNetwork: EthereumNetwork.Mainnet,
   db: {
     uri: 'mongodb://localhost:27017',
-    name: 'eth-sepolia',
+    name: 'eth-mainnet',
   },
   eth: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
