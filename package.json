@@ -2,6 +2,7 @@
   "name": "express",
   "version": "1.0.0",
   "scripts": {
+    "build": "tsc -p src/tsconfig.json --outDir build",
     "start": "nodemon src/server.ts",
     "lint": "eslint src/**/*.ts",
     "format": "npx prettier . --write",
@@ -28,7 +29,7 @@
     "nodemon": "^3.0.1",
     "prettier": "3.2.5",
     "ts-node": "^10.9.1",
-    "typescript": "^5.2.2",
+    "typescript": "^5.4.5",
     "typescript-eslint": "^7.8.0"
   }
 }

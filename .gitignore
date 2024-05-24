@@ -6,3 +6,4 @@ node_modules
 script/metadata
 log
 !src/log
+build

@@ -74,7 +74,7 @@ source ~/.bashrc
 nvm install 20
 
 # install pm2
-npm install pm2 bun -g
+npm install pm2 -g
 
 # generate ssh keypair
 ssh-keygen -t ed25519 -N "" -C $EMAIl -f ~/.ssh/id_ed25519
@@ -89,7 +89,8 @@ echo '4. add the key to https://github.com/felipelincoln/express/settings/keys/n
 echo '5. git clone git@github.com:felipelincoln/express.git'
 echo '6. cd express && npm install'
 echo '7. echo ALCHEMY_API_KEY=[VALUE] > .env'
-echo '8. pm2 start src/server.ts --env .env'
-echo '9. pm2 start src/tasks/dbCollectionListener.ts --env .env'
-echo '10. echo 19913716 > log/eventListenerState.txt'
-echo '11. pm2 start src/tasks/ethEventListener.ts --env .env'
+echo '8. npm run build'
+echo '9. pm2 start build/server.js --env .env'
+echo '10. pm2 start build/tasks/dbCollectionListener.js --env .env'
+echo '11. echo 19913716 > log/eventListenerState.txt'
+echo '12. pm2 start build/tasks/ethEventListener.js --env .env'
