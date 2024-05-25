@@ -17,7 +17,7 @@ const APPROVAL_FOR_ALL = '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca
 
 const logger = createLogger('log/ethEventListener.log');
 logger.info('task started');
-const stateFile = 'log/eventListenerState.txt';
+const stateFile = '.currentBlock';
 const blocksRange = 25;
 const taskInterval = 12_000;
 let isRunning = false;
@@ -25,11 +25,16 @@ let isRunning = false;
 async function run() {
   isRunning = true;
 
-  const lastProcessedBlock = Number(fs.readFileSync(stateFile, 'utf8'));
   const ethCurrentBlock = await alchemyClient.core.getBlockNumber();
+
+  if (!fs.existsSync(stateFile)) {
+    fs.writeFileSync(stateFile, ethCurrentBlock.toString());
+  }
+
+  const lastProcessedBlock = Number(fs.readFileSync(stateFile, 'utf8'));
   const blockToProcess = Math.min(ethCurrentBlock, lastProcessedBlock + blocksRange);
 
-  if (blockToProcess < lastProcessedBlock) {
+  if (blockToProcess == lastProcessedBlock) {
     isRunning = false;
     return;
   }

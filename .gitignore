@@ -7,4 +7,4 @@ script/metadata
 log
 !src/log
 build
-.env
+.currentBlock
