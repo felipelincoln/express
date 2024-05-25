@@ -58,6 +58,8 @@ EOF
 
 # install mongodb
 sudo yum install -y mongodb-org
+sudo dnf remove -y mongodb-mongosh-2.2.6-1.el8.x86_64
+sudo dnf install -y mongodb-mongosh-shared-openssl3
 
 # start mongodb
 sudo systemctl start mongod
