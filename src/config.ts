@@ -19,7 +19,12 @@ export const config = {
   },
   eth: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
+    openseaApiUrl: 'https://api.opensea.io',
+    openseaApiKey: getEnv('OPENSEA_API_KEY'),
     seaportContract: '0x0000000000000068f116a894984e2db1123eb395' as LowerCaseAddress,
     seaportConduitContract: '0x1e0049783f008a0085193e00003d00cd54003c71' as LowerCaseAddress,
+    blockedCollectionContracts: [
+      '0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb',
+    ] as LowerCaseAddress[],
   },
 };

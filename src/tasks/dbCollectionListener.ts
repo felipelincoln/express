@@ -1,5 +1,5 @@
 import { DbToken, createTokenCollection, db } from '../db';
-import { alchemyClient } from '../eth';
+import { alchemyClient, openseaClient } from '../eth';
 import { createLogger } from '../log';
 
 const logger = createLogger('log/dbCollectionListener.log');
@@ -46,9 +46,30 @@ async function run() {
       });
 
       for await (const token of tokens) {
-        const attributes: Record<string, string> = {};
+        const attributesFromAlchemy = () => {
+          try {
+            const { attributes } = token.raw.metadata;
+            if (Array.isArray(attributes) && attributes.length > 0) {
+              return attributes as { trait_type: string; value: string }[];
+            }
+          } catch (_e) {
+            return undefined;
+          }
+        };
+        const attributesFromOpensea = async () => {
+          const response = await openseaClient.getNftAttributes(collection.contract, token.tokenId);
 
-        token.raw.metadata.attributes.forEach((attr: { trait_type: string; value: string }) => {
+          return response?.attributes;
+        };
+
+        const attributesFromApi = attributesFromAlchemy() || (await attributesFromOpensea());
+
+        if (!attributesFromApi) {
+          throw new Error(`Failed to fetch attributes for token ${token.tokenId}`);
+        }
+
+        const attributes: Record<string, string> = {};
+        attributesFromApi.forEach((attr: { trait_type: string; value: string }) => {
           const { attribute, options } = reverseAttributeSummary[attr.trait_type];
           const attributeValue = options[attr.value];
 
@@ -58,12 +79,8 @@ async function run() {
         const newToken: DbToken = {
           tokenId: Number(token.tokenId),
           attributes,
+          image: token.image.thumbnailUrl,
         };
-
-        const alchemyImage = token.image.thumbnailUrl;
-        if (alchemyImage) {
-          newToken.image = alchemyImage;
-        }
 
         newTokensBatch.push(newToken);
         newTokensCount++;
@@ -85,11 +102,15 @@ async function run() {
       }
 
       logger.info(`[${collection.name}] finished ✅`);
-    } catch (e) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
       if (newTokensBatch.length > 0) {
         await db.token(collection.contract).insertMany(newTokensBatch);
       }
-      logger.warn(`[${collection.name}] failed (${tokensCount + newTokensCount}) ⚠️`);
+
+      logger.warn(`[${collection.name}] failed (${tokensCount + newTokensCount}) ⚠️`, {
+        context: { error: e.message },
+      });
       continue;
     }
   }

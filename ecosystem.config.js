@@ -1,4 +1,5 @@
 const ALCHEMY_API_KEY = '';
+const OPENSEA_API_KEY = '';
 
 module.exports = {
   apps: [
@@ -9,6 +10,7 @@ module.exports = {
       instances: 'max',
       env: {
         ALCHEMY_API_KEY,
+        OPENSEA_API_KEY,
       },
     },
     {
@@ -16,6 +18,7 @@ module.exports = {
       script: 'build/tasks/dbCollectionListener.js',
       env: {
         ALCHEMY_API_KEY,
+        OPENSEA_API_KEY,
       },
     },
     {
@@ -23,6 +26,7 @@ module.exports = {
       script: 'build/tasks/ethEventListener.js',
       env: {
         ALCHEMY_API_KEY,
+        OPENSEA_API_KEY,
       },
     },
   ],

@@ -6,6 +6,7 @@ import { isAddress } from 'viem';
 import { DbCollection, DbOrder, DbToken, db } from './db';
 import moment from 'moment';
 import { ObjectId } from 'mongodb';
+import { config } from './config';
 
 const logger = createLogger('log/all.log');
 const app = express();
@@ -103,6 +104,13 @@ app.get('/collections/get/:contract', async (req, res, next) => {
       }
 
       res.status(200).json({ data: { collection, isReady: isReady } });
+      next();
+      return;
+    }
+
+    if (config.eth.blockedCollectionContracts.includes(lowerCaseContract)) {
+      logger.warn(`[${lowerCaseContract}] is a blocked contract`);
+      res.status(400).json({ error: 'this contract is not supported yet' });
       next();
       return;
     }
