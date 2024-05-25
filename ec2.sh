@@ -89,5 +89,4 @@ echo '4. add the key to https://github.com/felipelincoln/express/settings/keys/n
 echo '5. git clone git@github.com:felipelincoln/express.git'
 echo '6. cd express && npm install && npm run build'
 echo '7. add ALCHEMY_API_KEY on ecosystem.config.js'
-echo '8. echo 19913716 > log/eventListenerState.txt'
-echo '9. pm2 start'
+echo '8. pm2 start'
