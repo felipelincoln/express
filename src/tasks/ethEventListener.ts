@@ -18,7 +18,7 @@ const APPROVAL_FOR_ALL = '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca
 const logger = createLogger('log/ethEventListener.log');
 logger.info('task started');
 const stateFile = 'log/eventListenerState.txt';
-const blocksRange = 100;
+const blocksRange = 25;
 const taskInterval = 12_000;
 let isRunning = false;
 
