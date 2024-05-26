@@ -46,7 +46,7 @@ app.get('/collections/list/', async (req, res, next) => {
   }: {
     limit?: number;
     skip?: number;
-  } = req.body;
+  } = req.query;
 
   if (limit && !isValidNumber(limit)) {
     res.status(400).json({ error: 'invalid `limit` field' });
