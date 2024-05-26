@@ -70,6 +70,11 @@ async function run() {
 
         const attributes: Record<string, string> = {};
         attributesFromApi.forEach((attr: { trait_type: string; value: string }) => {
+          if (!reverseAttributeSummary[attr.trait_type]) {
+            logger.error(`[${collection.name}] is missing the attribute "${attr.trait_type}"`);
+            return;
+          }
+
           const { attribute, options } = reverseAttributeSummary[attr.trait_type];
           const attributeValue = options[attr.value];
 
