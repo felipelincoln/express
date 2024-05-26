@@ -3,7 +3,7 @@ import { createLogger } from './log';
 import cors from 'cors';
 import { alchemyClient, lowerCaseAddress } from './eth';
 import { isAddress } from 'viem';
-import { DbCollection, DbOrder, DbToken, db } from './db';
+import { DbCollection, DbOrder, DbToken, db, isOrderValid } from './db';
 import moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { config } from './config';
@@ -321,6 +321,12 @@ app.post('/orders/create/', async (req, res, next) => {
 
     if (!isValidObject(order)) {
       res.status(400).json({ error: 'invalid `order` field' });
+      next();
+      return;
+    }
+
+    if (!isOrderValid(order)) {
+      res.status(400).json({ error: 'invalid order' });
       next();
       return;
     }
