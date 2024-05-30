@@ -77,7 +77,7 @@ app.get('/collections/trending/', async (req, res, next) => {
 
   const trending: TrendingCollection[] = [];
 
-  collections.forEach(async (dbCollection) => {
+  for (const dbCollection of collections) {
     const listings = await db.order.countDocuments({ contract: dbCollection.contract });
     const trades = await db.activity.countDocuments({ contract: dbCollection.contract });
 
@@ -88,7 +88,7 @@ app.get('/collections/trending/', async (req, res, next) => {
     };
 
     trending.push(collection);
-  });
+  }
 
   res.status(200).json({ data: { trending } });
   next();
