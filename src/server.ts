@@ -7,6 +7,7 @@ import { DbCollection, DbOrder, DbToken, db, isOrderValid } from './db';
 import moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { config } from './config';
+import { TrendingCollection } from './virtualTypes';
 
 const logger = createLogger('log/all.log');
 const app = express();
@@ -39,6 +40,7 @@ app.post('/jsonrpc', async (req, res, next) => {
   }
 });
 
+// deprecated
 app.get('/collections/list/', async (req, res, next) => {
   const {
     limit,
@@ -65,6 +67,30 @@ app.get('/collections/list/', async (req, res, next) => {
     .toArray();
 
   res.status(200).json({ data: { collections } });
+  next();
+});
+
+app.get('/collections/trending/', async (req, res, next) => {
+  const collections = await db.collection
+    .find({}, { limit: 100, projection: { _id: 0 } })
+    .toArray();
+
+  const trending: TrendingCollection[] = [];
+
+  collections.forEach(async (dbCollection) => {
+    const listings = await db.order.countDocuments({ contract: dbCollection.contract });
+    const trades = await db.activity.countDocuments({ contract: dbCollection.contract });
+
+    const collection: TrendingCollection = {
+      collection: dbCollection,
+      listings,
+      trades,
+    };
+
+    trending.push(collection);
+  });
+
+  res.status(200).json({ data: { trending } });
   next();
 });
 
