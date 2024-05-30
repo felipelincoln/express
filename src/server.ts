@@ -148,7 +148,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
       return;
     }
 
-    if (Number(metadata.totalSupply) > 11000) {
+    if (Number(metadata.totalSupply) > 31000) {
       logger.warn(`[${lowerCaseContract}] has supply of ${metadata.totalSupply}`);
       res.status(400).json({ error: 'this contract is not supported yet' });
       next();
