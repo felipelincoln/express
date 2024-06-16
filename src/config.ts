@@ -14,7 +14,7 @@ export enum Network {
 export const config = {
   network: Network.EthMainnet,
   db: {
-    uri: 'mongodb://localhost:27017',
+    uri: 'mongodb+srv://collectoorfelipelincoln:7X4WxFDjj8CYXa2T@cluster0.em5w3pe.mongodb.net/',
     name: 'eth-mainnet',
   },
   web3: {

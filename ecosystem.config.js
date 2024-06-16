@@ -1,6 +1,6 @@
-const ALCHEMY_API_KEY = '';
-const OPENSEA_API_KEY = '';
-const NFTSCAN_API_KEY = '';
+const ALCHEMY_API_KEY = 'none';
+const OPENSEA_API_KEY = 'none';
+const NFTSCAN_API_KEY = 'nMDstwxluFoTJKgq771WaoWa';
 
 module.exports = {
   apps: [

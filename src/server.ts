@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { createLogger } from './log';
 import cors from 'cors';
-import { alchemyClient, lowerCaseAddress } from './eth';
+import { alchemyClient, lowerCaseAddress, nftScanClient } from './eth';
 import { isAddress } from 'viem';
 import { DbCollection, DbOrder, DbToken, db, isOrderValid } from './db';
 import moment from 'moment';
@@ -28,6 +28,7 @@ app.use((_, res, next) => {
   next();
 });
 
+// alchemy - jsonrpc
 app.post('/jsonrpc', async (req, res, next) => {
   try {
     const { method, params, id, jsonrpc } = req.body;
@@ -94,6 +95,7 @@ app.get('/collections/trending/', async (req, res, next) => {
   next();
 });
 
+// alchemy - get contract metadata
 app.get('/collections/get/:contract', async (req, res, next) => {
   const { contract } = req.params;
 
@@ -141,49 +143,35 @@ app.get('/collections/get/:contract', async (req, res, next) => {
       return;
     }
 
-    const metadata = await alchemyClient.nft.getContractMetadata(contract);
-    if (metadata.tokenType != 'ERC721') {
+    const metadata = await nftScanClient.collection.getCollectionsByContract(contract, true);
+
+    if (!metadata) {
+      res.status(400).json({ error: 'invalid `contract`' });
+      next();
+      return;
+    }
+
+    if (metadata.erc_type != 'erc721') {
       res.status(400).json({ error: 'only ERC721 tokens are supported' });
       next();
       return;
     }
 
-    if (Number(metadata.totalSupply) > 31000) {
-      logger.warn(`[${lowerCaseContract}] has supply of ${metadata.totalSupply}`);
+    if (Number(metadata.items_total) > 31000) {
+      logger.warn(`[${lowerCaseContract}] has supply of ${metadata.items_total}`);
       res.status(400).json({ error: 'this contract is not supported yet' });
       next();
       return;
     }
 
-    if (
-      !metadata.totalSupply ||
-      !metadata.name ||
-      !metadata.symbol ||
-      !metadata.openSeaMetadata?.imageUrl
-    ) {
-      logger.warn(`[${lowerCaseContract}] has missing fields.`, { context: { metadata } });
-      res.status(400).json({ error: 'this contract is not supported yet' });
-      next();
-      return;
-    }
-
-    const attributes = await alchemyClient.nft.summarizeNftAttributes(contract);
+    const attributes = metadata.attributes;
     const attributeSummaryList = [];
 
-    if (!attributes.summary || Object.keys(attributes.summary).length == 0) {
-      logger.warn(`[${lowerCaseContract}] is missing attributes summary.`, {
-        context: { attributes },
-      });
-      res.status(400).json({ error: 'this contract is not supported yet' });
-      next();
-      return;
-    }
-
-    for (const [k, v] of Object.entries(attributes.summary)) {
-      const options = Object.keys(v);
+    for (const [k, attribute] of Object.entries(attributes)) {
+      const options = attribute.attributes_values.map((val) => val.attributes_value);
       options.sort();
       attributeSummaryList.push({
-        attribute: k,
+        attribute: attribute.attributes_name,
         options: Object.fromEntries(Object.entries(options)),
       });
     }
@@ -193,9 +181,9 @@ app.get('/collections/get/:contract', async (req, res, next) => {
     const newCollection: DbCollection = {
       name: metadata.name,
       symbol: metadata.symbol,
-      image: metadata.openSeaMetadata?.imageUrl,
+      image: metadata.logo_url,
       contract: lowerCaseContract,
-      totalSupply: Number(metadata.totalSupply),
+      totalSupply: metadata.items_total,
       attributeSummary: Object.fromEntries(Object.entries(attributeSummaryList)),
     };
 
@@ -208,6 +196,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
   }
 });
 
+// alchemy - get user's nfts
 app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
   try {
     const { contract, userAddress } = req.params;
