@@ -1,6 +1,8 @@
-const ALCHEMY_API_KEY = 'none';
-const OPENSEA_API_KEY = 'none';
-const NFTSCAN_API_KEY = 'nMDstwxluFoTJKgq771WaoWa';
+const ALCHEMY_API_KEY = '';
+const OPENSEA_API_KEY = '';
+const NFTSCAN_API_KEY = '';
+const MONGO_URI = '';
+const MONGO_DBNAME = '';
 
 module.exports = {
   apps: [
@@ -13,6 +15,8 @@ module.exports = {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
         NFTSCAN_API_KEY,
+        MONGO_URI,
+        MONGO_DBNAME,
       },
     },
     {
@@ -22,6 +26,8 @@ module.exports = {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
         NFTSCAN_API_KEY,
+        MONGO_URI,
+        MONGO_DBNAME,
       },
     },
     {
@@ -31,6 +37,8 @@ module.exports = {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
         NFTSCAN_API_KEY,
+        MONGO_URI,
+        MONGO_DBNAME,
       },
     },
   ],

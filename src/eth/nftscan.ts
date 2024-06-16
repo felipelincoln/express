@@ -7,6 +7,8 @@ const NftScanNetwork = (() => {
       return EvmChain.ETH;
     case Network.EthSepolia:
       return undefined;
+    case Network.Base:
+      return EvmChain.BASE;
     default:
       throw new Error(`Invalid Ethereum Network: ${config.network}`);
   }

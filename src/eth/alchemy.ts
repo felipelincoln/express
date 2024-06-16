@@ -7,6 +7,8 @@ const alchemyNetwork = (() => {
       return AlchemyNetwork.ETH_MAINNET;
     case Network.EthSepolia:
       return AlchemyNetwork.ETH_SEPOLIA;
+    case Network.Base:
+      return AlchemyNetwork.BASE_MAINNET;
     default:
       throw new Error(`Invalid Ethereum Network: ${config.network}`);
   }

@@ -9,13 +9,14 @@ const getEnv = (varName: string) => (process.env[varName] || fail(varName)) as s
 export enum Network {
   EthMainnet = '1',
   EthSepolia = '11155111',
+  Base = '8453',
 }
 
 export const config = {
   network: Network.EthMainnet,
   db: {
-    uri: 'mongodb+srv://collectoorfelipelincoln:7X4WxFDjj8CYXa2T@cluster0.em5w3pe.mongodb.net/',
-    name: 'eth-mainnet',
+    uri: getEnv('MONGO_URI'),
+    name: getEnv('MONGO_DBNAME'),
   },
   web3: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
