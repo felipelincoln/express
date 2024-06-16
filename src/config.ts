@@ -6,21 +6,22 @@ function fail(varName: string) {
 
 const getEnv = (varName: string) => (process.env[varName] || fail(varName)) as string;
 
-export enum EthereumNetwork {
-  Mainnet = '1',
-  Sepolia = '11155111',
+export enum Network {
+  EthMainnet = '1',
+  EthSepolia = '11155111',
 }
 
 export const config = {
-  ethereumNetwork: EthereumNetwork.Mainnet,
+  network: Network.EthMainnet,
   db: {
     uri: 'mongodb://localhost:27017',
     name: 'eth-mainnet',
   },
-  eth: {
+  web3: {
     alchemyApiKey: getEnv('ALCHEMY_API_KEY'),
-    openseaApiUrl: 'https://api.opensea.io',
     openseaApiKey: getEnv('OPENSEA_API_KEY'),
+    nftscanApiKey: getEnv('NFTSCAN_API_KEY'),
+    openseaApiUrl: 'https://api.opensea.io',
     seaportContract: '0x0000000000000068f116a894984e2db1123eb395' as LowerCaseAddress,
     seaportConduitContract: '0x1e0049783f008a0085193e00003d00cd54003c71' as LowerCaseAddress,
     blockedCollectionContracts: [

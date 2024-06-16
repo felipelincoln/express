@@ -20,6 +20,7 @@
     "express": "^4.18.2",
     "moment": "^2.30.1",
     "mongodb": "^6.1.0",
+    "nftscan-api": "^1.13.1",
     "viem": "^2.4.0",
     "winston": "^3.13.0"
   },

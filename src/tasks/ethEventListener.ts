@@ -64,15 +64,15 @@ async function run() {
 
     switch (topic0) {
       case FULFILLED_ORDER:
-        if (address !== config.eth.seaportContract) break;
+        if (address !== config.web3.seaportContract) break;
         await processFulfilledOrder(log, orders);
         break;
       case CANCELED_ORDER:
-        if (address !== config.eth.seaportContract) break;
+        if (address !== config.web3.seaportContract) break;
         await processCanceledOrder(log, orders);
         break;
       case INCREMENTED_COUNTER:
-        if (address !== config.eth.seaportContract) break;
+        if (address !== config.web3.seaportContract) break;
         await processIncrementedCounter(log, orders);
         break;
       case TRANSFER:
@@ -275,7 +275,7 @@ async function processSetApprovalForAll(approvalForAll: Log, orders: WithId<DbOr
     (order) => order.contract === token && order.offerer === owner,
   );
   if (setApprovalActiveOrders.length === 0) return;
-  if (operator !== config.eth.seaportConduitContract) return;
+  if (operator !== config.web3.seaportConduitContract) return;
 
   // 1. User is revoking allowance: Deactivate orders
   if (!approved) {

@@ -1,14 +1,14 @@
-import { EthereumNetwork, config } from '../config';
+import { Network, config } from '../config';
 import axios from 'axios';
 
 const OpenseaNetwork = (() => {
-  switch (config.ethereumNetwork) {
-    case EthereumNetwork.Mainnet:
+  switch (config.network) {
+    case Network.EthMainnet:
       return 'ethereum';
-    case EthereumNetwork.Sepolia:
+    case Network.EthSepolia:
       return 'sepolia';
     default:
-      throw new Error(`Invalid Ethereum Network: ${config.ethereumNetwork}`);
+      throw new Error(`Invalid Ethereum Network: ${config.network}`);
   }
 })();
 
@@ -23,7 +23,7 @@ interface GetNftAttributesResponse {
 }
 
 class Opensea {
-  private apiUrl: string = config.eth.openseaApiUrl + '/api/v2';
+  private apiUrl: string = config.web3.openseaApiUrl + '/api/v2';
   private apiKey: string = '';
   private network: string = '';
 
@@ -52,6 +52,6 @@ class Opensea {
 }
 
 export const openseaClient = new Opensea({
-  apiKey: config.eth.openseaApiKey,
+  apiKey: config.web3.openseaApiKey,
   network: OpenseaNetwork,
 });

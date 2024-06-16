@@ -1,5 +1,6 @@
 const ALCHEMY_API_KEY = '';
 const OPENSEA_API_KEY = '';
+const NFTSCAN_API_KEY = '';
 
 module.exports = {
   apps: [
@@ -11,6 +12,7 @@ module.exports = {
       env: {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
+        NFTSCAN_API_KEY,
       },
     },
     {
@@ -19,6 +21,7 @@ module.exports = {
       env: {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
+        NFTSCAN_API_KEY,
       },
     },
     {
@@ -27,6 +30,7 @@ module.exports = {
       env: {
         ALCHEMY_API_KEY,
         OPENSEA_API_KEY,
+        NFTSCAN_API_KEY,
       },
     },
   ],

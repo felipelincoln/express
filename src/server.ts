@@ -134,7 +134,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
       return;
     }
 
-    if (config.eth.blockedCollectionContracts.includes(lowerCaseContract)) {
+    if (config.web3.blockedCollectionContracts.includes(lowerCaseContract)) {
       logger.warn(`[${lowerCaseContract}] is a blocked contract`);
       res.status(400).json({ error: 'this contract is not supported yet' });
       next();
