@@ -12,8 +12,24 @@ export enum Network {
   Base = '8453',
 }
 
+function getChain(chainStr: string): Network {
+  switch (chainStr) {
+    case 'mainnet':
+      return Network.EthMainnet;
+
+    case 'sepolia':
+      return Network.EthSepolia;
+
+    case 'base':
+      return Network.Base;
+
+    default:
+      return Network.EthMainnet;
+  }
+}
+
 export const config = {
-  network: Network.EthMainnet,
+  network: getChain(getEnv('CHAIN')),
   db: {
     uri: getEnv('MONGO_URI'),
     name: getEnv('MONGO_DBNAME'),

@@ -3,6 +3,7 @@ const OPENSEA_API_KEY = '';
 const NFTSCAN_API_KEY = '';
 const MONGO_URI = '';
 const MONGO_DBNAME = '';
+const CHAIN = '';
 
 module.exports = {
   apps: [
@@ -17,6 +18,7 @@ module.exports = {
         NFTSCAN_API_KEY,
         MONGO_URI,
         MONGO_DBNAME,
+        CHAIN,
       },
     },
     {
@@ -28,6 +30,7 @@ module.exports = {
         NFTSCAN_API_KEY,
         MONGO_URI,
         MONGO_DBNAME,
+        CHAIN,
       },
     },
     {
@@ -39,6 +42,7 @@ module.exports = {
         NFTSCAN_API_KEY,
         MONGO_URI,
         MONGO_DBNAME,
+        CHAIN,
       },
     },
   ],
