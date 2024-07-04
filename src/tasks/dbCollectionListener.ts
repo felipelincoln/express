@@ -96,6 +96,9 @@ async function run() {
           logger.info(
             `[${collection.name}] processing (${tokensCount + newTokensCount} / ${totalSupply}) ⌛`,
           );
+
+          // alchemy rate limit workaround
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
