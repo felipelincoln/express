@@ -2,7 +2,7 @@ import { DbCollection } from './db';
 
 export interface TrendingCollection {
   collection: DbCollection;
-  floorPrice: { ethPrice: bigint; tokenPrice: number };
+  floorPrice: { ethPrice: string; tokenPrice: number };
   listings: number;
   trades: number;
 }

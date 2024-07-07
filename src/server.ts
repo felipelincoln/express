@@ -110,7 +110,10 @@ app.get('/collections/trending/', async (req, res, next) => {
       collection: dbCollection,
       listings,
       trades,
-      floorPrice,
+      floorPrice: {
+        ethPrice: floorPrice.ethPrice.toString(),
+        tokenPrice: floorPrice.tokenPrice,
+      },
     };
 
     trending.push(collection);
