@@ -99,11 +99,11 @@ app.get('/collections/trending/', async (req, res, next) => {
 
   trending.sort((a, b) => {
     if (a.trades !== b.trades) {
-      return a.trades - b.trades;
+      return b.trades - a.trades;
     }
 
     if (a.listings !== b.listings) {
-      return a.listings - b.listings;
+      return b.listings - a.listings;
     }
 
     return 1;
