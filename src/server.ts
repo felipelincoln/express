@@ -85,13 +85,32 @@ app.get('/collections/trending/', async (req, res, next) => {
       transferred: { $ne: true },
       endTime: { $gt: moment().unix() },
     };
-    const listings = await db.order.countDocuments(listingsQuery);
+    const listingRows = await db.order.find(listingsQuery).toArray();
+    const floorPrice = listingRows.reduce(
+      (floor, listing) => {
+        const tokenPrice = Number(listing.fulfillmentCriteria.token.amount);
+        const ethPrice = BigInt(listing.fulfillmentCriteria.coin?.amount || '0');
+
+        if (tokenPrice < floor.tokenPrice) {
+          return { ethPrice, tokenPrice };
+        }
+
+        if (ethPrice < floor.ethPrice) {
+          return { ethPrice, tokenPrice };
+        }
+
+        return floor;
+      },
+      { ethPrice: BigInt(0), tokenPrice: 0 },
+    );
+    const listings = listingRows.length;
     const trades = await db.activity.countDocuments({ contract: dbCollection.contract });
 
     const collection: TrendingCollection = {
       collection: dbCollection,
       listings,
       trades,
+      floorPrice,
     };
 
     trending.push(collection);
