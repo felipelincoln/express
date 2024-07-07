@@ -79,7 +79,13 @@ app.get('/collections/trending/', async (req, res, next) => {
   const trending: TrendingCollection[] = [];
 
   for (const dbCollection of collections) {
-    const listings = await db.order.countDocuments({ contract: dbCollection.contract });
+    const listingsQuery: any = {
+      contract: lowerCaseAddress(dbCollection.contract),
+      allowed: { $ne: false },
+      transferred: { $ne: true },
+      endTime: { $gt: moment().unix() },
+    };
+    const listings = await db.order.countDocuments(listingsQuery);
     const trades = await db.activity.countDocuments({ contract: dbCollection.contract });
 
     const collection: TrendingCollection = {
@@ -90,6 +96,18 @@ app.get('/collections/trending/', async (req, res, next) => {
 
     trending.push(collection);
   }
+
+  trending.sort((a, b) => {
+    if (a.trades !== b.trades) {
+      return a.trades - b.trades;
+    }
+
+    if (a.listings !== b.listings) {
+      return a.listings - b.listings;
+    }
+
+    return 1;
+  });
 
   res.status(200).json({ data: { trending } });
   next();
