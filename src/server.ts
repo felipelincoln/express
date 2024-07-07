@@ -89,7 +89,9 @@ app.get('/collections/trending/', async (req, res, next) => {
     const floorPrice = listingRows.reduce(
       (floor, listing) => {
         const tokenPrice = Number(listing.fulfillmentCriteria.token.amount);
-        const ethPrice = BigInt(listing.fulfillmentCriteria.coin?.amount || '0');
+        const ethPrice =
+          BigInt(listing.fulfillmentCriteria.coin?.amount || '0') +
+          BigInt(listing.fee?.amount || '0');
 
         if (floor.tokenPrice === 0 && floor.ethPrice === BigInt(0)) {
           return { ethPrice, tokenPrice };
