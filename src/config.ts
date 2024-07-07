@@ -42,7 +42,8 @@ export const config = {
     seaportContract: '0x0000000000000068f116a894984e2db1123eb395' as LowerCaseAddress,
     seaportConduitContract: '0x1e0049783f008a0085193e00003d00cd54003c71' as LowerCaseAddress,
     blockedCollectionContracts: [
-      '0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb',
+      '0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb', // punks
+      '0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85', // ens
     ] as LowerCaseAddress[],
   },
 };

@@ -8,6 +8,7 @@ import moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { config } from './config';
 import { TrendingCollection } from './virtualTypes';
+import { Contract } from 'alchemy-sdk';
 
 const logger = createLogger('log/all.log');
 const app = express();
@@ -244,7 +245,7 @@ app.get('/collections/get/:contract', async (req, res, next) => {
   }
 });
 
-// alchemy - get user's nfts
+// alchemy - get nfts for owner
 app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
   try {
     const { contract, userAddress } = req.params;
@@ -282,6 +283,50 @@ app.get('/eth/tokens/list/:contract/:userAddress', async (req, res, next) => {
     }
 
     res.status(200).json({ data: { tokenIds } });
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// alchemy - get nfts for owner
+app.get('/eth/collections/list/:userAddress', async (req, res, next) => {
+  try {
+    const { userAddress } = req.params;
+
+    if (!isAddress(userAddress)) {
+      res.status(400).json({ error: 'invalid `userAddress`' });
+      next();
+      return;
+    }
+
+    const nfts = alchemyClient.nft.getNftsForOwnerIterator(userAddress);
+
+    let collections: { name: string; image: string; contract: string; count: number }[] = [];
+    for await (const nft of nfts) {
+      if (nft.contract.tokenType != 'ERC721') continue;
+      if (!nft.collection?.name) continue;
+      if (!nft.image.thumbnailUrl) continue;
+      if (config.web3.blockedCollectionContracts.includes(lowerCaseAddress(nft.contract.address)))
+        continue;
+
+      const collection = {
+        name: nft.collection?.name,
+        image: nft.image.thumbnailUrl,
+        contract: nft.contract.address,
+        count: 1,
+      };
+
+      const existingCollection = collections.findIndex((c) => c.contract === collection.contract);
+      if (existingCollection >= 0) {
+        collections[existingCollection].count++;
+        continue;
+      }
+
+      collections.push(collection);
+    }
+
+    res.status(200).json({ data: { collections } });
     next();
   } catch (err) {
     next(err);
