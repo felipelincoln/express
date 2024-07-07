@@ -120,6 +120,8 @@ app.get('/collections/trending/', async (req, res, next) => {
       },
     };
 
+    if (listings === 0 && trades === 0) continue;
+
     trending.push(collection);
   }
 
