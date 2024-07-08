@@ -305,13 +305,13 @@ app.get('/eth/collections/list/:userAddress', async (req, res, next) => {
     let collections: { name: string; image: string; contract: string; count: number }[] = [];
     for await (const nft of nfts) {
       if (nft.contract.tokenType != 'ERC721') continue;
-      if (!nft.collection?.name) continue;
+      if (!nft.contract.name) continue;
       if (!nft.image.thumbnailUrl) continue;
       if (config.web3.blockedCollectionContracts.includes(lowerCaseAddress(nft.contract.address)))
         continue;
 
       const collection = {
-        name: nft.collection?.name,
+        name: nft.contract.name,
         image: nft.image.thumbnailUrl,
         contract: nft.contract.address,
         count: 1,
