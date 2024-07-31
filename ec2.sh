@@ -39,12 +39,17 @@ EOF
 sudo systemctl start nginx
 sudo systemctl enable nginx
 
+# install crontab
+sudo dnf install cronie -y
+sudo systemctl start crond
+sudo systemctl enable crond
+
 # setup certbot
 sudo dnf install python3 augeas-libs -y
 sudo python3 -m venv /opt/certbot/
 sudo /opt/certbot/bin/pip install certbot certbot-nginx
 sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
-echo "0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
+echo "0 0 1 * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
 
 # add mongodb to yum repo
 sudo tee /etc/yum.repos.d/mongodb-org-7.0.repo > /dev/null <<EOF
@@ -72,7 +77,7 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
 
 # install node and npm
-nvm install 20
+nvm install 22
 
 # install pm2
 npm install pm2 -g
