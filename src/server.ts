@@ -10,7 +10,7 @@ import { config } from './config';
 import { TrendingCollection } from './virtualTypes';
 import { Contract } from 'alchemy-sdk';
 
-const logger = createLogger('log/all.log');
+const logger = createLogger();
 const app = express();
 
 app.use(express.json());

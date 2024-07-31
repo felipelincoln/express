@@ -1,8 +1,6 @@
 import winston from 'winston';
 
-// export const logApi = logger('log/api.log');
-
-export function createLogger(out: string) {
+export function createLogger() {
   return winston.createLogger({
     format: winston.format.combine(
       winston.format.timestamp(),
@@ -12,6 +10,6 @@ export function createLogger(out: string) {
           `${timestamp} ${level} ${message} ${context ? JSON.stringify(context) : ''}`,
       ),
     ),
-    transports: [new winston.transports.Console(), new winston.transports.File({ filename: out })],
+    transports: [new winston.transports.Console()],
   });
 }

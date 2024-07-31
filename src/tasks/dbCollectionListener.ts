@@ -2,7 +2,7 @@ import { DbToken, createTokenCollection, db } from '../db';
 import { alchemyClient, openseaClient } from '../eth';
 import { createLogger } from '../log';
 
-const logger = createLogger('log/dbCollectionListener.log');
+const logger = createLogger();
 logger.info('task started');
 let isRunning = false;
 

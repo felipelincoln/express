@@ -4,7 +4,6 @@ node_modules
 .vscode/*
 
 script/metadata
-log
-!src/log
+src/log
 build
 .currentBlock
