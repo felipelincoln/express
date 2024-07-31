@@ -3,12 +3,11 @@ import { createLogger } from './log';
 import cors from 'cors';
 import { alchemyClient, lowerCaseAddress, nftScanClient } from './eth';
 import { isAddress } from 'viem';
-import { DbCollection, DbOrder, DbToken, db, isOrderValid } from './db';
+import { DbCollection, DbOrder, db, isOrderValid } from './db';
 import moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { config } from './config';
 import { TrendingCollection } from './virtualTypes';
-import { Contract } from 'alchemy-sdk';
 
 const logger = createLogger();
 const app = express();
@@ -144,7 +143,7 @@ app.get('/collections/trending/', async (req, res, next) => {
   next();
 });
 
-// alchemy - get contract metadata
+// nftscan - get contract metadata
 app.get('/collections/get/:contract', async (req, res, next) => {
   const { contract } = req.params;
 
@@ -208,6 +207,13 @@ app.get('/collections/get/:contract', async (req, res, next) => {
 
     if (Number(metadata.items_total) > 31000) {
       logger.warn(`[${lowerCaseContract}] has supply of ${metadata.items_total}`);
+      res.status(400).json({ error: 'this contract is not supported yet' });
+      next();
+      return;
+    }
+
+    if (Object.entries(metadata.attributes).length === 0) {
+      logger.warn(`[${lowerCaseContract}] has no attributes`);
       res.status(400).json({ error: 'this contract is not supported yet' });
       next();
       return;
