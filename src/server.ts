@@ -8,6 +8,7 @@ import moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { config } from './config';
 import { TrendingCollection } from './virtualTypes';
+import io from '@pm2/io';
 
 const logger = createLogger();
 const app = express();
@@ -623,6 +624,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
   next();
   logger.error(err.stack);
+  io.notifyError(err), { context: { req } };
 });
 
 // Logger
