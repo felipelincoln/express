@@ -102,7 +102,7 @@ app.get('/collections/trending/', async (req, res, next) => {
           return { ethPrice, tokenPrice };
         }
 
-        if (ethPrice < floor.ethPrice) {
+        if (ethPrice < floor.ethPrice && tokenPrice <= floor.tokenPrice) {
           return { ethPrice, tokenPrice };
         }
 
