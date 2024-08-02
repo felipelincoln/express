@@ -8,7 +8,8 @@
     "format": "npx prettier . --write",
     "task:dbMigrate": "ts-node src/tasks/dbMigrate.ts",
     "task:dbCollectionListener": "ts-node src/tasks/dbCollectionListener.ts",
-    "task:ethEventListener": "ts-node src/tasks/ethEventListener.ts"
+    "task:ethEventListener": "ts-node src/tasks/ethEventListener.ts",
+    "task:dbCollectionRefresh": "ts-node src/tasks/dbCollectionRefresh.ts"
   },
   "dependencies": {
     "@pm2/io": "^6.0.1",
