@@ -21,8 +21,8 @@ interface NftAttribute {
   value: string;
 }
 
-interface GetNftAttributesResponse {
-  nft?: { traits: NftAttribute[] };
+interface GetNFTResponse {
+  nft?: { traits?: NftAttribute[] | null; display_image_url?: string | null };
   errors?: string[];
 }
 
@@ -36,22 +36,21 @@ class Opensea {
     this.network = network;
   }
 
-  async getNftAttributes(
+  async getNFT(
     contract: string,
     tokenId: string,
-  ): Promise<{ attributes: NftAttribute[] } | undefined> {
+  ): Promise<{ attributes?: NftAttribute[]; image?: string }> {
     const endpoint = `${this.apiUrl}/chain/${this.network}/contract/${contract}/nfts/${tokenId}`;
-    const response = await axios.get<GetNftAttributesResponse>(endpoint, {
+    const response = await axios.get<GetNFTResponse>(endpoint, {
       headers: { accept: 'application/json', 'x-api-key': this.apiKey },
     });
 
-    if (!response.data?.nft?.traits) return;
-
-    const attributes = response.data.nft.traits.map((attribute) => {
+    const image = response.data.nft?.display_image_url ?? undefined;
+    const attributes = response.data.nft?.traits?.map((attribute) => {
       return { trait_type: attribute.trait_type, value: attribute.value };
     });
 
-    return { attributes };
+    return { attributes, image };
   }
 }
 

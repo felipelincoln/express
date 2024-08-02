@@ -1,5 +1,5 @@
 import { DbToken, createTokenCollection, db } from '../db';
-import { alchemyClient, openseaClient } from '../eth';
+import { alchemyClient, nftScanClient, openseaClient } from '../eth';
 import { createLogger } from '../log';
 
 const logger = createLogger();
@@ -44,8 +44,14 @@ async function run() {
         tokenUriTimeoutInMs: 0,
         pageKey: lastTokenId ? (lastTokenId + 1).toString() : undefined,
       });
+      /*
+      const tokensAlt = await nftScanClient.asset.getAssetsByContract(collection.contract, {
+        cursor: lastTokenId ? '0x' + (lastTokenId + 1).toString(16).padStart(64, '0') : undefined,
+      });
+      */
 
       for await (const token of tokens) {
+        // TODO: move into alchemy class
         const attributesFromAlchemy = () => {
           try {
             const { attributes } = token.raw.metadata;
@@ -56,20 +62,76 @@ async function run() {
             return undefined;
           }
         };
-        const attributesFromOpensea = async () => {
-          const response = await openseaClient.getNftAttributes(collection.contract, token.tokenId);
 
-          return response?.attributes;
+        // TODO: move into opensea class
+        const nftFromOpensea = async () => {
+          try {
+            return await openseaClient.getNFT(collection.contract, token.tokenId);
+          } catch (_e) {
+            return undefined;
+          }
         };
 
-        const attributesFromApi = attributesFromAlchemy() || (await attributesFromOpensea());
+        // TODO: move into nftscan class
+        const nftFromNFTScan = async () => {
+          try {
+            const response = await nftScanClient.asset.getAssetsByContractAndTokenId(
+              collection.contract,
+              token.tokenId,
+            );
+            let attributes;
+            let image;
 
-        if (!attributesFromApi) {
+            if (response.attributes) {
+              attributes = response.attributes.map((attribute) => {
+                return { trait_type: attribute.attribute_name, value: attribute.attribute_value };
+              });
+            }
+            if (response.nftscan_uri) {
+              image = response.nftscan_uri;
+            }
+
+            return { attributes, image };
+          } catch (_e) {
+            return undefined;
+          }
+        };
+
+        let image = token.image.thumbnailUrl;
+        let attributesArray = attributesFromAlchemy();
+
+        // if not from alchemy - try nftscan
+        if (!attributesArray || !image) {
+          const response = await nftFromNFTScan();
+
+          if (!attributesArray) {
+            attributesArray = response?.attributes;
+          }
+
+          if (!image) {
+            image = response?.image;
+          }
+        }
+
+        // if not from nftscan - try opensea
+        if (!attributesArray || !image) {
+          const response = await nftFromOpensea();
+
+          if (!attributesArray) {
+            attributesArray = response?.attributes;
+          }
+
+          if (!image) {
+            image = response?.image;
+          }
+        }
+
+        if (!attributesArray) {
           throw new Error(`Failed to fetch attributes for token ${token.tokenId}`);
         }
 
         const attributes: Record<string, string> = {};
-        attributesFromApi.forEach((attr: { trait_type: string; value: string }) => {
+        attributesArray.forEach((attr: { trait_type: string; value: string }) => {
           if (!reverseAttributeSummary[attr.trait_type]) {
             logger.error(`[${collection.name}] is missing the attribute "${attr.trait_type}"`);
             return;
@@ -84,7 +146,7 @@ async function run() {
         const newToken: DbToken = {
           tokenId: Number(token.tokenId),
           attributes,
-          image: token.image.thumbnailUrl,
+          image,
         };
 
         newTokensBatch.push(newToken);
