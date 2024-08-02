@@ -9,6 +9,8 @@ const OpenseaNetwork = (() => {
       return 'sepolia';
     case Network.Base:
       return 'base';
+    case Network.Polygon:
+      return 'matic';
     default:
       throw new Error(`Invalid Ethereum Network: ${config.network}`);
   }

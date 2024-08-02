@@ -10,6 +10,7 @@ export enum Network {
   EthMainnet = '1',
   EthSepolia = '11155111',
   Base = '8453',
+  Polygon = '137',
 }
 
 function getChain(chainStr: string): Network {
@@ -22,6 +23,9 @@ function getChain(chainStr: string): Network {
 
     case 'base':
       return Network.Base;
+
+    case 'polygon':
+      return Network.Polygon;
 
     default:
       return Network.EthMainnet;

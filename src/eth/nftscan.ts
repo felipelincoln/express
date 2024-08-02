@@ -9,6 +9,8 @@ const NftScanNetwork = (() => {
       return undefined;
     case Network.Base:
       return EvmChain.BASE;
+    case Network.Polygon:
+      return EvmChain.POLYGON;
     default:
       throw new Error(`Invalid Ethereum Network: ${config.network}`);
   }
