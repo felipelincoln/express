@@ -25,7 +25,7 @@ async function run() {
   if (startTokenId) {
     const tokensDelete = await db
       .token(lowerCaseContract)
-      .deleteMany({ id: { $gte: Number(startTokenId) } });
+      .deleteMany({ tokenId: { $gte: Number(startTokenId) } });
 
     if (tokensDelete.deletedCount) {
       logger.info(`${tokensDelete.deletedCount} tokens deleted`);
