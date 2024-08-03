@@ -13,6 +13,8 @@ import io from '@pm2/io';
 const logger = createLogger();
 const app = express();
 
+const homeReqs = io.counter({ name: 'Home requests count' });
+
 app.use(express.json());
 app.use(cors({ origin: '*' }));
 app.use((_, res, next) => {
@@ -140,6 +142,7 @@ app.get('/collections/trending/', async (req, res, next) => {
     return 1;
   });
 
+  homeReqs.inc();
   res.status(200).json({ data: { trending } });
   next();
 });
