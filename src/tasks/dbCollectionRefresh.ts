@@ -4,6 +4,7 @@ import { createLogger } from '../log';
 
 const logger = createLogger();
 const contract = process.argv[2] as string | undefined;
+const startTokenId = process.argv[3] as string | undefined;
 
 async function run() {
   if (!contract) {
@@ -20,6 +21,18 @@ async function run() {
   }
 
   logger.info('collection deleted');
+
+  if (startTokenId) {
+    const tokensDelete = await db
+      .token(lowerCaseContract)
+      .deleteMany({ id: { $gte: Number(startTokenId) } });
+
+    if (tokensDelete.deletedCount) {
+      logger.info(`${tokensDelete.deletedCount} tokens deleted`);
+    }
+
+    return;
+  }
 
   const tokensDelete = await db.token(lowerCaseContract).drop();
   if (tokensDelete) {
