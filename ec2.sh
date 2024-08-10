@@ -51,24 +51,6 @@ sudo /opt/certbot/bin/pip install certbot certbot-nginx
 sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
 echo "0 0 1 * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
 
-# add mongodb to yum repo
-sudo tee /etc/yum.repos.d/mongodb-org-7.0.repo > /dev/null <<EOF
-[mongodb-org-7.0]
-name=MongoDB Repository
-baseurl=https://repo.mongodb.org/yum/amazon/2023/mongodb-org/7.0/x86_64/
-gpgcheck=1
-enabled=1
-gpgkey=https://pgp.mongodb.com/server-7.0.asc
-EOF
-
-# install mongodb
-sudo dnf install -y mongodb-org-server.x86_64 mongodb-org-database.x86_64
-sudo dnf install -y mongodb-mongosh-shared-openssl3
-
-# start mongodb
-sudo systemctl start mongod
-sudo systemctl enable mongod
-
 # install git
 sudo dnf install git -y
 
@@ -96,5 +78,6 @@ echo '5. git clone git@github.com:felipelincoln/express.git'
 echo '6. add all variables ~/.bashrc'
 echo '7. source ~/.bashrc'
 echo '6. cd express && npm install && npm run build'
+echo '7. npm run task:dbMigrate'
 echo '8. pm2 start'
 echo '9. pm2 save'
