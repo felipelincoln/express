@@ -100,9 +100,9 @@ async function run() {
         let image = token.image.thumbnailUrl;
         let attributesArray = attributesFromAlchemy();
 
-        // if not from alchemy - try nftscan
+        // if not from alchemy - try opensea
         if (!attributesArray || !image) {
-          const response = await nftFromNFTScan();
+          const response = await nftFromOpensea();
 
           if (!attributesArray) {
             attributesArray = response?.attributes;
@@ -113,9 +113,9 @@ async function run() {
           }
         }
 
-        // if not from nftscan - try opensea
+        // if not from opensea - try nftscan
         if (!attributesArray || !image) {
-          const response = await nftFromOpensea();
+          const response = await nftFromNFTScan();
 
           if (!attributesArray) {
             attributesArray = response?.attributes;
